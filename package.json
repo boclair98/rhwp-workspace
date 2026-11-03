@@ -1,1 +1,25 @@
-{"name":"rhwp-workspace","version":"0.1.0","private":true,"type":"module","license":"MIT","scripts":{"dev":"vite --config frontend/vite.config.mjs --host 127.0.0.1 --port 7720","typecheck":"tsc -p frontend/tsconfig.json","build":"npm run typecheck && vite build --config frontend/vite.config.mjs","preview":"vite preview --config frontend/vite.config.mjs --host 127.0.0.1 --port 7720","start":"node server.mjs"},"dependencies":{"@noble/hashes":"2.4.0","canvaskit-wasm":"0.42.0"},"devDependencies":{"@types/chrome":"0.3.4","typescript":"7.0.2","vite":"8.3.5"}}
+{
+  "name": "rhwp-workspace",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "scripts": {
+    "dev": "vite --config frontend/vite.config.mjs --host 127.0.0.1 --port 7720",
+    "typecheck": "tsc -p frontend/tsconfig.json",
+    "build": "npm run typecheck && vite build --config frontend/vite.config.mjs",
+    "preview": "vite preview --config frontend/vite.config.mjs --host 127.0.0.1 --port 7720",
+    "start": "node server.mjs",
+    "test": "node --experimental-strip-types --test tests/library.test.ts"
+  },
+  "dependencies": {
+    "@noble/hashes": "2.4.0",
+    "canvaskit-wasm": "0.42.0"
+  },
+  "devDependencies": {
+    "@types/chrome": "0.3.4",
+    "fake-indexeddb": "6.2.7",
+    "typescript": "7.0.2",
+    "vite": "8.3.5"
+  }
+}

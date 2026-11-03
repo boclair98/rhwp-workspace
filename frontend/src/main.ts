@@ -1,4 +1,5 @@
 import { installWorkspaceShell } from '@/ui/workspace-shell';
+import { installDocumentLibrary } from '@/workspace/document-library';
 import { setHostFontProvider, onHostFontsChanged, hasHostFontProvider, prepareHostFontCatalog, getHostFontState, localFontFaceKey, type LocalFontRecord } from '@/core/local-fonts';
 import { collectHostFontRequests, collectDocumentCanvasKitFontUsage, resolveDocumentCanvasKitFontUsage, type DocumentCanvasKitFontUsage } from '@/core/host-font-requests';
 import { WasmBridge } from '@/core/wasm-bridge';
@@ -289,6 +290,16 @@ const commandServices: CommandServices = {
 
 const dispatcher = new CommandDispatcher(registry, commandServices, eventBus);
 installWorkspaceShell(wasm, eventBus, dispatcher, documentState);
+installDocumentLibrary(wasm, eventBus, documentState, dispatcher, async (document) => {
+  if (!await canReplaceCurrentDocument()) return false;
+  try {
+    await loadBytes(document.data, document.fileName, null);
+    return true;
+  } catch (error) {
+    showLoadErrorUnlessCancelled(error);
+    return false;
+  }
+});
 
 // 자동화 표면 — 외부 JavaScript 가 커맨드·메뉴를 다루는 자리. 실행은 메뉴·툴바·키보드와 같은
 // dispatcher 를 타므로 게이트가 갈리지 않는다. 메뉴 컨테이너는 이 시점에 아직 없을 수 있어

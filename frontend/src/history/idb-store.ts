@@ -1,3 +1,6 @@
+import { listArchivedHistory, getArchivedHistory, deleteArchivedHistory } from '../workspace/library-store';
+import { parseHistorySnapshot } from '../workspace/history-backup';
+import { digest } from '../workspace/library-model';
 /**
  * 문서 이력 — IndexedDB + 메모리 폴백.
  * - 신규: IR 스냅샷 JSON(`CompareDocumentSnapshot`)으로 stable_id 보존.
@@ -61,7 +64,7 @@ async function listMetaMemory(): Promise<MetaRow[]> {
     .sort((a, b) => b.createdAt - a.createdAt);
 }
 
-export async function listHistoryMeta(): Promise<MetaRow[]> {
+async function listNativeHistoryMeta(): Promise<MetaRow[]> {
   return withDb(
     async (db) =>
       new Promise((resolve, reject) => {
@@ -80,6 +83,11 @@ export async function listHistoryMeta(): Promise<MetaRow[]> {
 type BlobRow = { id: string; snapshotJson?: string; data?: ArrayBuffer };
 
 export async function getHistoryPayload(id: string): Promise<HistoryPayload | null> {
+  if (id.startsWith('workspace-history-')) {
+    const row = await getArchivedHistory(id);
+    if (!row) return null;
+    return row.kind === 'ir' ? { kind: 'ir', snapshot: parseHistorySnapshot(row.data) } : { kind: 'legacy', bytes: row.data };
+  }
   const mem = memory.get(id);
   if (mem) {
     if (mem.irSnapshot) return { kind: 'ir', snapshot: mem.irSnapshot };
@@ -187,6 +195,13 @@ export async function saveHistoryIrSnapshot(
 }
 
 export async function deleteHistorySnapshot(id: string): Promise<void> {
+  if (id.startsWith('workspace-history-')) { await deleteArchivedHistory(id); return; }
+  const meta = (await listNativeHistoryMeta()).find(row => row.id === id);
+  if (meta) {
+    const hash = await nativeHistoryHash(id);
+    const duplicates = (await listArchivedHistory().catch(() => [])).filter(row => row.label === meta.label && row.sourceFileName === meta.sourceFileName && row.createdAt === meta.createdAt && row.sha256 === hash);
+    for (const row of duplicates) await deleteArchivedHistory(row.id);
+  }
   memory.delete(id);
   await withDb(
     async (db) =>
@@ -202,6 +217,7 @@ export async function deleteHistorySnapshot(id: string): Promise<void> {
 }
 
 export async function clearHistory(): Promise<void> {
+  if (idbAvailable()) await deleteArchivedHistory();
   memory.clear();
   await withDb(
     async (db) =>
@@ -214,4 +230,22 @@ export async function clearHistory(): Promise<void> {
       }),
     async () => {},
   );
+}
+
+async function nativeHistoryHash(id: string): Promise<string | null> {
+  const payload = await getHistoryPayload(id);
+  if (!payload) return null;
+  return digest(payload.kind === 'legacy' ? payload.bytes : new TextEncoder().encode(JSON.stringify(payload.snapshot)));
+}
+
+export async function listHistoryMeta(): Promise<MetaRow[]> {
+  const native = await listNativeHistoryMeta();
+  // Preserve the original in-memory history feature when persistent storage is unavailable.
+  const migrated = await listArchivedHistory().catch(() => []);
+  const distinct = [];
+  for (const row of migrated) {
+    const match = native.find(old => old.label === row.label && old.sourceFileName === row.sourceFileName && old.createdAt === row.createdAt);
+    if (!match || await nativeHistoryHash(match.id) !== row.sha256) distinct.push(row);
+  }
+  return [...native, ...distinct.map(row => ({ id: row.id, label: row.label, sourceFileName: row.sourceFileName, createdAt: row.createdAt, byteLength: row.data.length, storageKind: row.kind === 'ir' ? 'ir' as const : 'legacy' as const }))].sort((a, b) => b.createdAt - a.createdAt);
 }

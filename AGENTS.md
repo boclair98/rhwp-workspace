@@ -7,3 +7,5 @@
 - API 키/문서/로그를 커밋하지 않는다. 파일은 클라이언트에서 처리한다.
 - Coders.kr 작업은 사용자의 publishing policy를 따른다: boclair98 canonical → coders-kr 실제 fork 동일 SHA → canonical 배포 → 운영 검증.
 - 커밋/푸시/배포는 사용자 요청 범위 안에서만 진행한다.
+- 현재 명시 범위: boclair98 GitHub에만 반영. Coders.kr 인증/배포 및 coders-kr 조직 fork 동기화는 하지 않는다.
+- 보관/백업 변경 시 npm test로 손상·중복·실패 원자성을 검사하고, 브라우저 실제 파일 왕복도 확인한다.
