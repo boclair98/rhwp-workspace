@@ -1,0 +1,13 @@
+{
+  "project":"RHWP",
+  "repository":"https://github.com/edwardkim/rhwp",
+  "license":"MIT",
+  "frontendSourceCommit":"df39fb5d7a566ba6a49c2f6a04965616d2c2af73",
+  "frontendSourcePath":"rhwp-studio",
+  "engineVersion":"0.8.7",
+  "engineSourceNote":"WASM is reused from the official published Pages build; it was not compiled locally. No source-SHA equivalence to the frontend commit is asserted.",
+  "engineJs":{"url":"https://edwardkim.github.io/rhwp/rhwp.js","sha256":"70cde06a369fa7fd4fc8bc8f3d6acaee158596ba1a116a2c72159002b0b5654e"},
+  "engineWasm":{"url":"https://edwardkim.github.io/rhwp/rhwp_bg.wasm","sha256":"54cf95014312e605c51b98eb9021247ea79ef2bbd0a7080e11c011d0246e3989"},
+  "changes":["Workspace shell and responsive theme","Title and default theme","Consistent browser file input/download flow","Single save-as filename confirmation","Build and static hosting configuration"],
+  "engineModified":false
+}
