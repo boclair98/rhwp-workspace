@@ -254,9 +254,7 @@ export class HistoryDialog {
       }
       console.log('[rhwp:history] 최종 Diff 배열', session.diffItems);
       this.compareSessionStore.set(session);
-      const mode =
-        session.textCompareStrategyUsed === 'identity' ? t('dialog.history.onCompareWithCurrent.text.x9cae02') : t('dialog.history.onCompareWithCurrent.text.x09d3e7');
-      this.resultMetaEl.textContent = t('dialog.history.resultMetaEl.text.x13744b', { p1: session.diffItems.length, p2: mode, p3: leftName, p4: rightName });
+      this.resultMetaEl.textContent = t('dialog.history.resultMetaEl.text.x13744b', { p1: session.diffItems.length, p3: leftName, p4: rightName });
       this.renderDiffList(session.diffItems);
       this.services.eventBus.emit('compare:mode-changed', true);
       if (session.diffItems.length > 0) {

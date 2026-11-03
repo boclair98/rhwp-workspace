@@ -26,6 +26,16 @@ import {
   type ArchivedHistory,
 } from './history-backup';
 import { listHistoryMeta, getHistoryPayload } from '../history/idb-store';
+import { workspaceIcon } from '../ui/workspace-icons';
+
+function withIcon(button: HTMLButtonElement, name: string): HTMLButtonElement {
+  const icon = document.createElement('span');
+  icon.className = 'workspace-action-icon';
+  icon.setAttribute('aria-hidden', 'true');
+  icon.innerHTML = workspaceIcon(name);
+  button.prepend(icon);
+  return button;
+}
 
 function el<K extends keyof HTMLElementTagNameMap>(
   tag: K,
@@ -164,6 +174,7 @@ export function installDocumentLibrary(
     'workspace-button workspace-store',
   );
   storeButton.title = '현재 문서를 이 브라우저에 보관';
+  withIcon(storeButton, 'save');
   actions.prepend(storeButton);
   const libraryButton = button(
     '내 문서',
@@ -173,6 +184,7 @@ export function installDocumentLibrary(
     'workspace-side-action workspace-library-open',
   );
   side.querySelector('.workspace-section-label')!.after(libraryButton);
+  withIcon(libraryButton, 'folder');
   const renameButton = button('이름 변경', rename, 'workspace-rename');
   renameButton.title = '현재 문서 이름 변경';
   document.querySelector('.workspace-document-meta')!.append(renameButton);
@@ -194,6 +206,8 @@ export function installDocumentLibrary(
     'workspace-side-action',
   );
   hwpxButton.before(historyButton);
+  withIcon(historyButton, 'history');
+  withIcon(hwpxButton, 'download');
   function sync(): void {
     if (generation !== wasm.documentGeneration) {
       generation = wasm.documentGeneration;
@@ -327,7 +341,7 @@ export function installDocumentLibrary(
     const view = panel('내 문서');
     const intro = el(
       'p',
-      '이 브라우저에 보관한 문서입니다. 브라우저 데이터를 지우면 사라지므로 다른 PC로 옮길 때는 백업을 내려받으세요.',
+      '이 브라우저에 보관한 문서예요. 브라우저 데이터를 지우기 전에는 백업을 내려받으세요.',
       'workspace-muted',
     );
     const search = el('input');
@@ -342,7 +356,15 @@ export function installDocumentLibrary(
     let rows: LibraryDocument[] = [];
     let history: ArchivedHistory[] = [];
     function render(): void {
-      summary.textContent = `문서 ${rows.length}개 · 이전 작업 이력 ${history.length}개 · ${([...rows, ...history].reduce((n, row) => n + row.data.length, 0) / 1024 / 1024).toFixed(1)} / 50MB`;
+      const usedBytes = [...rows, ...history].reduce(
+        (n, row) => n + row.data.length,
+        0,
+      );
+      const used =
+        usedBytes < 1024 * 1024
+          ? `${(usedBytes / 1024).toFixed(0)}KB`
+          : `${(usedBytes / 1024 / 1024).toFixed(1)}MB`;
+      summary.textContent = `문서 ${rows.length}개 · 이전 이력 ${history.length}개 · ${used} / 50MB`;
       list.replaceChildren();
       const filtered = rows.filter((row) =>
         row.fileName
@@ -354,8 +376,8 @@ export function installDocumentLibrary(
           el(
             'div',
             rows.length
-              ? '검색 결과가 없습니다. 이름을 바꾸어 찾아보세요.'
-              : '아직 보관한 문서가 없습니다. 편집 화면의 ‘보관’을 누르면 여기에 표시됩니다.',
+              ? '검색한 이름의 문서가 없어요. 다른 이름으로 찾아보세요.'
+              : '아직 보관한 문서가 없어요. 문서를 가져오거나 편집 화면에서 보관해 보세요.',
             'workspace-empty',
           ),
         );
@@ -363,6 +385,9 @@ export function installDocumentLibrary(
       }
       for (const row of filtered) {
         const item = el('div', '', 'workspace-library-row');
+        const fileIcon = el('span', '', 'workspace-library-file-icon');
+        fileIcon.innerHTML = workspaceIcon('document');
+        fileIcon.setAttribute('aria-hidden', 'true');
         const info = el('div', '', 'workspace-library-info');
         info.append(
           el('strong', row.fileName),
@@ -402,7 +427,7 @@ export function installDocumentLibrary(
           void confirmRemove(row);
         });
         remove.setAttribute('aria-label', `${row.fileName} 보관본 삭제`);
-        item.append(info, open, remove);
+        item.append(fileIcon, info, open, remove);
         list.append(item);
       }
     }
@@ -588,13 +613,14 @@ export function installDocumentLibrary(
       recovery,
       viewHistory,
     ];
+    documentsButton.classList.add('workspace-primary');
     view.footer.append(...controls, file, documentsInput);
     search.addEventListener('input', render);
     message.textContent = '보관 목록을 불러오는 중…';
     try {
       await refresh();
       message.textContent =
-        '백업 파일에는 문서 내용이 포함됩니다. 본인이 보관한 파일만 가져오세요.';
+        '기기를 옮길 때는 문서와 작업 이력을 백업으로 가져갈 수 있어요.';
     } catch (error) {
       message.textContent = errorText(error);
     }

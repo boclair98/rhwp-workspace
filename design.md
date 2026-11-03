@@ -68,3 +68,29 @@ Output target: frontend/ 및 Dockerfile, coders.yaml, 한국어 README.
 사용자가 확정한 마이그레이션은 기존 HWP 문서와 작업 내역 이전이다. 여러 HWP/HWPX 파일을 선택해 가져오며, 기존 RHWP의 복구본과 IR/구형 HWP 이력을 실제 바이트와 함께 백업한다. 메모·원본 파일명·저장 시각·문단 식별자를 보존한다. Ctrl+Z 세션이나 다른 웹사이트 저장소에 대한 자동 접근을 약속하지 않는다. 새 문서/이력 저장소는 같은 IndexedDB 트랜잭션으로 변경한다.
 
 내 문서 대화상자는 native dialog, 760px 최대 폭, 720px 최대 높이, 본문 스크롤과 하단 조작을 사용한다. 모바일에서는 목록을 2행으로 배치하고 버튼은 44px 이상이다. 제목바는 모바일 136px로 파일명·보관 상태·44px 이름 변경을 확보한다. Tab/Shift+Tab 순환, Escape 닫기와 이전 조작으로 포커스 복귀를 제공한다.
+
+## 서비스 화면 정돈 — 2026-11-04
+
+사용자 요청: 글꼴과 화면을 토스의 명료하고 담백한 서비스 인상에 맞춰 수정한다. 글결의 자체 워드마크, 기존 스택과 문서 편집/보관/이전 계약을 유지한다. 사각 글자 로고, 작은 설명의 반복, 촘촘한 테두리와 다색 툴바 아이콘을 정리한다. AI 기능·배너·장식·홍보 문구를 추가하지 않는다. 문서 본문의 글꼴·크기·내용은 바꾸지 않는다.
+
+- Topic: 한국어 문서 편집 서비스 글결
+- Offer: HWP/HWPX 편집, 내 문서 보관과 백업 이전
+- Audience: 기존 한글 문서를 가져와 계속 편집하는 사용자
+- Primary user action: 파일 열기 → file:open, 보관본 재열기 → 기존 loadBytes
+- Deliverable: 실제 편집기와 보관함 디자인 1개
+- Style direction: 한국어 서비스 앱의 명료한 타이포그래피, 무채색 면, 절제된 파란색
+- Tonal key: 짧고 구체적인 한국어
+- Icon policy: 자체 단색 SVG, 원본 버튼과 data-cmd/id 유지, 토스 자산 사용 없음
+- Proof assets: 기존 기능 확인용 문서와 보관함 실제 화면
+- Motion intensity: 버튼 배경/포커스 120ms, reduced-motion 존중
+
+Composition contract: hero 해당 없음. 첫 화면은 80px 헤더, 232px 사이드바, 메뉴/편집 도구/서식, 실제 종이 캔버스로 구성한다. 워드마크와 문서 제목을 명확히 나누고 주 행동인 파일 저장만 파란색으로 강조한다. 툴바의 모든 명령과 내부 가로 스크롤을 보존한다. 라이선스와 로컬 저장 안내는 하단 정보/보관함 설명에서 읽을 수 있다.
+
+확정 토큰: text #191f28, secondary #4e5968, muted #6b7684, surface #ffffff, sidebar #f9fafb, canvas #f2f4f6, border #e5e8eb, primary #3182f6, primary-hover #1b64da, selected #e8f3ff, danger #d92d45. 어두운 테마는 기존 의미 토큰을 유지한다. UI 글꼴은 번들 Pretendard 400/500/600/700을 실제 각 파일로 연결한다. 워드마크 24px/700, 문서 제목 16px/600, 메뉴/사이드바/버튼 14~15px/500~600, 설명 13px/400, 상태 12px/400. 기본 줄 높이 1.5, 자간 -0.02em. 간격 4/8/12/16/24/32, 버튼 10px/44px, 모달 20px 반경과 28px 패딩. 반복 카드 대신 구분선 목록을 쓴다.
+
+모바일: 160px 헤더에서 문서명·보관·파일 저장 필요 상태를 모두 확보한다. 패널 접기, 44px 주요 조작, 서식 도구 내부 스크롤과 메뉴 줄바꿈을 사용한다. 긴 파일명은 말줄임과 title, 본문 안내는 keep-all과 overflow-wrap으로 처리한다. Tab/Shift+Tab, Escape와 포커스 복귀를 유지한다. 주 버튼은 흰색 작은 글자 대비를 위해 #1b64da, hover #1555be를 사용하고 브랜드/포커스 색은 #3182f6을 유지한다.
+
+변경: workspace.css를 일관된 토큰/컴포넌트/반응형 순서로 정리, workspace-shell.ts와 단색 SVG 아이콘, document-library.ts의 아이콘·목록·문구, README와 검증 화면. pkg/core/engine/view와 문서 서식 데이터는 변경하지 않는다. 검증: build, 기존 저장소 테스트, HWP 편집/보관/다운로드 확인, 360/390/768/1440 화면 직접 관찰, 키보드와 콘솔 확인.
+
+확정 prompt: 글결의 실제 편집기를 읽기 편한 한국어 문서 서비스로 정돈하라. 번들 Pretendard의 실제 굵기 400/500/600/700, 흰색과 회색, 주 행동에만 파란색, 명확한 제목/본문/설명 위계를 사용하라. 작은 장식 타일과 반복 설명을 줄이고 단색 SVG 및 구분선 목록을 사용하라. 기존 메뉴와 편집/저장/이전 기능, 문서 본문의 서식, 모든 명령 id와 이벤트 연결을 유지하라. 실제 화면과 키보드 조작을 검증하라.
+Output target: frontend/src/ui/workspace-shell.ts, frontend/src/ui/workspace-icons.ts, frontend/src/styles/workspace.css, frontend/src/workspace/document-library.ts.
