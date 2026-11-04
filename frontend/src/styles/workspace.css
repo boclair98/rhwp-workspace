@@ -1735,3 +1735,10 @@ summary:focus-visible,
 @media (max-width: 900px) {
   .workspace-save-as-body input { font-size: 16px !important; min-height: 44px; }
 }
+.workspace-loading { position: fixed; inset: 0; z-index: 500; display: grid; place-items: center; padding: 20px; background: #191f283d; font-family: var(--font-family-ui); }
+.workspace-loading[hidden] { display: none !important; }
+.workspace-loading > div { width: min(340px, 100%); padding: 28px; border-radius: 16px; background: var(--ui-surface); color: var(--ui-text); box-shadow: var(--shadow-dialog); }
+.workspace-loading svg { width: 24px; height: 24px; margin-bottom: 16px; color: var(--accent-strong); }
+.workspace-loading strong { display: block; font-size: 18px; line-height: 1.5; }
+.workspace-loading p { margin: 8px 0 0; color: var(--ui-text-secondary); font-size: 14px; line-height: 1.6; }
+.workspace-loading, .workspace-loading > div { box-sizing: border-box; }

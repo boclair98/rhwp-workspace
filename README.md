@@ -2,11 +2,11 @@
 
 RHWP 오픈소스를 바탕으로 만든 독립 HWP/HWPX 문서 편집기입니다. 한컴의 공식 제품이나 제휴 서비스가 아닙니다. 이전 이름 ‘글결’의 문서와 백업을 그대로 읽습니다. 파일을 브라우저에서 열고 수정하여 내려받습니다.
 
-**v0.3 운영 중 · `ready` (2026-11-05 검증).** [오픈소스 한글 열기](https://rhwp-workspace.coders.kr) — Coders.kr의 최신 배포 규약으로 게시했으며 실제 문서 편집·저장·백업 이전과 모바일/PC 화면을 확인했습니다. 로컬 실행도 계속 지원합니다.
+**v0.3.1 운영 중 · `ready` (2026-11-05 검증).** [오픈소스 한글 열기](https://rhwp-workspace.coders.kr) — Coders.kr의 최신 배포 규약으로 게시했으며 실제 문서 편집·저장·백업 이전과 모바일/PC 화면을 확인했습니다. 로컬 실행도 계속 지원합니다.
 
 ![운영 오픈소스 한글의 데스크톱 문서 편집 화면](screenshots/production-desktop.jpg)
 
-[내 문서 보관함](screenshots/production-library-desktop.jpg) · [모바일 보관함](screenshots/production-library-mobile.jpg) · [모바일 서식 창](screenshots/production-mobile-format.jpg) · [v0.2 이전 이력 비교 기록](screenshots/history-migration.jpg)
+[내 문서 보관함](screenshots/production-library-desktop.jpg) · [모바일 보관함](screenshots/production-library-mobile.jpg) · [모바일 서식 창](screenshots/production-mobile-format.jpg) · [모바일 표 입력](screenshots/production-mobile-table.jpg) · [v0.2 이전 이력 비교 기록](screenshots/history-migration.jpg)
 
 운영 검증 화면: [PC 보관함](screenshots/production-library-desktop.jpg) · [모바일 보관함](screenshots/production-library-mobile.jpg) · [360px](screenshots/production-mobile-360.jpg) · [390px](screenshots/production-mobile-390.jpg) · [태블릿](screenshots/production-tablet.jpg). 화면 속 문서는 직접 만든 기능 확인용 문서입니다.
 
@@ -24,7 +24,7 @@ RHWP 오픈소스를 바탕으로 만든 독립 HWP/HWPX 문서 편집기입니�
 
 공개 HWP 3개(한컴 2010/2018/2020 저장 메타데이터)를 실제로 편집·다운로드·재파싱했습니다. 6쪽/표9개 문서는 본문과 새 표를 추가한 뒤6쪽/표10개가 유지됐고, 독후감은 모바일에서 적용한12pt·굵게가 HWP 재열기 후에도 남았습니다. 번호·글머리표 문구 수정과 세 HWP의 기존 본문 보존도 확인했습니다.
 
-모바일 하단 쪽/배율 조작44px, 짧은 배율 창, 회전 시 맞춤 유지, 서식→표 만들기, 표 생성 후 즉시 입력과 키보드 메뉴를 보완했습니다. **독후감 HWPX 변환본은1→2쪽으로 배치가 달라지는 한계가 남아 있습니다.** HWPX 변환 시 이를 안내하며 원래 서식 유지에는 HWP 저장을 사용하세요. [실제 파일·모바일 상세 결과와 한계](HWP_CHECKS.md).
+문서 준비 중에는 로딩 안내와 조작 잠금을 제공해 입력 가능한 시점을 구분합니다. 모바일 하단 쪽/배율 조작44px, 짧은 배율 창, 회전 시 맞춤 유지, 서식→표 만들기, 표 생성 후 즉시 입력과 키보드 메뉴를 보완했습니다. **독후감 HWPX 변환본은1→2쪽으로 배치가 달라지는 한계가 남아 있습니다.** HWPX 변환 시 이를 안내하며 원래 서식 유지에는 HWP 저장을 사용하세요. [실제 파일·모바일 상세 결과와 한계](HWP_CHECKS.md).
 
 ## 구현 기능과 사용 흐름
 

@@ -850,7 +850,7 @@ async function initialize(): Promise<void> {
       // 없는 문서 교체 경로이므로 띄우지 않는다 (드래프트 기록 자체는 유지).
       if (chromeMode !== 'embed') await offerAutosaveRecoveryIfIdle();
       await openBlankDocumentIfIdle();
-    })();
+    })().finally(() => eventBus.emit('document-loading', false));
     // embed 프로파일: PWA launch queue로 문서를 넘겨받는 진입도 문서 교체 경로이므로
     // 설치하지 않는다.
     if (chromeMode !== 'embed') {
@@ -896,6 +896,7 @@ async function initialize(): Promise<void> {
     rendererInitializationError = error instanceof Error ? error.message : String(error);
     msg.textContent = `WASM 초기화 실패: ${error}`;
     console.error('[main] WASM 초기화 실패:', error);
+    eventBus.emit('document-loading', false);
   }
 }
 
@@ -1412,6 +1413,7 @@ async function initializeDocument(
   options: { suppressDialogs?: boolean } = {},
 ): Promise<void> {
   const msg = sbMessage();
+  eventBus.emit('document-loading', true);
   try {
     setDocumentFontSubstitutions(docInfo.fontSubstitutions);
     currentDocumentFonts = [...(docInfo.fontsUsed ?? [])];
@@ -1475,6 +1477,7 @@ async function initializeDocument(
     // 로컬 글꼴 감지 결과가 뷰를 갱신한 뒤에 캐럿을 연결해야 입력 포커스가 재설정과 경합하지 않는다.
     console.log('[initDoc] 8. inputHandler activateWithCaretPosition');
     await updateLoadProgress(96, '편집 상태 초기화 중...');
+    eventBus.emit('document-loading', false);
     inputHandler?.activateWithCaretPosition();
     // 최종 단계 뒤에는 비동기 작업이 없으므로 100% progress paint를 기다리지 않는다.
     msg.textContent = displayName;
@@ -1486,6 +1489,8 @@ async function initializeDocument(
   } catch (error) {
     console.error('[initDoc] 오류:', error);
     if (window.innerWidth < 768) alert(`초기화 오류: ${error}`);
+  } finally {
+    eventBus.emit('document-loading', false);
   }
 }
 
@@ -1642,6 +1647,7 @@ async function loadBytes(
 ): Promise<void> {
   // 바이트로 여는 모든 경로(파일 열기 · ?url= · 자동저장 복구 · 호스트 API)의 공통 깔때기다.
   // 파싱·쪽 계산 동안 빈 화면만 보이므로 여기서 대기 커서를 든다.
+  eventBus.emit('document-loading', true);
   await withBusyCursor(document.documentElement, async () => {
     // 파싱 전에 먼저 빈 쪽 상태로 만든다 — 이전 문서를 붙잡고 있다가 한 번에 갈아치우면
     // 화면이 튀어 보인다. 파싱이 실패하면 아래 catch가 이전 문서 뷰를 되살린다.
@@ -1691,7 +1697,7 @@ async function loadBytes(
     await initializeDocument(docInfo, t('ui.sbMessage.filePagesTimed', { p1: fileName, p2: docInfo.pageCount, p3: elapsed.toFixed(1) }), {
       suppressDialogs: options.suppressDialogs,
     });
-  });
+  }).finally(() => eventBus.emit('document-loading', false));
 }
 
 const RECENT_SUBMENU_COLLAPSED_LIMIT = 8;
@@ -1832,6 +1838,7 @@ async function restoreAutosaveDraft(draft: AutosaveDraft): Promise<void> {
 
 async function createNewDocument(): Promise<void> {
   const msg = sbMessage();
+  eventBus.emit('document-loading', true);
   try {
     await withBusyCursor(document.documentElement, async () => {
       msg.textContent = '새 문서 생성 중...';
@@ -1847,6 +1854,8 @@ async function createNewDocument(): Promise<void> {
   } catch (error) {
     msg.textContent = `새 문서 생성 실패: ${error}`;
     console.error('[main] 새 문서 생성 실패:', error);
+  } finally {
+    eventBus.emit('document-loading', false);
   }
 }
 

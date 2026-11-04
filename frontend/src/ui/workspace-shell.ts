@@ -24,6 +24,20 @@ export function installWorkspaceShell(
   side.innerHTML = `<div class="workspace-section-label">문서</div><div class="workspace-current"><span class="workspace-file-icon">${icon('document')}</span><div><span id="workspace-current-name">새 문서</span><span class="workspace-current-note" id="workspace-document-summary">브라우저에서 편집</span></div></div><div class="workspace-section-label workspace-section-gap">편집 도구</div><button class="workspace-side-action" data-workspace-command="edit:find">${icon('search')}<span>문서에서 찾기</span><kbd>Ctrl F</kbd></button><button class="workspace-side-action" data-workspace-command="file:page-setup">${icon('page')}<span>편집 용지</span><kbd>F7</kbd></button><button class="workspace-side-action" data-workspace-command="file:print-to-pdf">${icon('download')}<span>PDF로 저장</span></button><div class="workspace-sidebar-bottom"><details class="workspace-help"><summary>이용 안내</summary><p>RHWP 기반 독립 오픈소스 편집기입니다. 한컴의 공식 제품이나 제휴 서비스가 아닙니다.</p><p>문서는 이 브라우저에서 편집해요. 파일 저장을 누르면 편집본을 내려받을 수 있어요.</p><p>Ctrl S 파일 저장<br>Ctrl Z 되돌리기<br>Ctrl Shift Z 다시 실행</p></details><a class="workspace-source" href="https://github.com/boclair98/rhwp-workspace" target="_blank" rel="noopener noreferrer"><span>RHWP 기반 · MIT 라이선스</span>${icon('external')}</a></div>`;
   root.prepend(side);
   root.prepend(top);
+  const loading = document.createElement('div');
+  loading.className = 'workspace-loading';
+  loading.hidden = true;
+  loading.setAttribute('role', 'status');
+  loading.innerHTML = `<div>${icon('document')}<strong>문서를 여는 중이에요</strong><p>글꼴과 편집 도구를 준비하고 있어요.<br>잠시만 기다려 주세요.</p></div>`;
+  document.body.append(loading);
+  const setLoading = (busy: unknown) => {
+    const active = busy === true;
+    root.inert = active;
+    root.setAttribute('aria-busy', String(active));
+    loading.hidden = !active;
+  };
+  eventBus.on('document-loading', setLoading);
+  setLoading(true);
   installWorkspaceToolbarIcons();
   installEditorTools(wasm, eventBus, dispatcher);
   const toggle = top.querySelector<HTMLButtonElement>('#workspace-nav-toggle')!;
