@@ -2,11 +2,13 @@
 
 RHWP 오픈소스를 바탕으로 만든 한국어 HWP/HWPX 문서 편집 작업 공간입니다. 파일을 브라우저에서 열고 수정하여 내려받습니다.
 
-**운영 배포 준비 중 (2026-11-05).** 사용자 요청에 따라 Coders.kr의 최신 배포 규약으로 게시합니다. 예정 주소는 [글결](https://rhwp-workspace.coders.kr)이며, 배포 상태 `ready`와 실제 화면 확인 후 이 상태를 갱신합니다. 로컬 실행도 계속 지원합니다.
+**운영 중 · `ready` (2026-11-05 검증).** [글결 열기](https://rhwp-workspace.coders.kr) — Coders.kr의 최신 배포 규약으로 게시했으며 실제 문서 편집·저장·백업 이전과 모바일/PC 화면을 확인했습니다. 로컬 실행도 계속 지원합니다.
 
-![데스크톱 문서 편집 화면](screenshots/desktop.jpg)
+![운영 글결의 데스크톱 문서 편집 화면](screenshots/production-desktop.jpg)
 
 [내 문서 보관함](screenshots/library-desktop.jpg) · [이전 이력 비교](screenshots/history-migration.jpg) · [모바일 보관함](screenshots/library-mobile.jpg)
+
+운영 검증 화면: [PC 보관함](screenshots/production-library-desktop.jpg) · [모바일 보관함](screenshots/production-library-mobile.jpg) · [360px](screenshots/production-mobile-360.jpg) · [390px](screenshots/production-mobile-390.jpg) · [태블릿](screenshots/production-tablet.jpg). 화면 속 문서는 직접 만든 기능 확인용 문서입니다.
 
 ## 화면과 글꼴
 
@@ -122,6 +124,8 @@ npm start
 - `npm run build`: TypeScript 검사 및 Vite production build.
 - `npm test`: 문서/이력 백업 왕복, 변조 거부, 중복 방지, IndexedDB 실패 시 전체 취소와 v1 저장소 업그레이드 등 11개 통과.
 - 별도 로컬 출처 7720 → 7721에서 문서 2개·이력 1개 이전 후 실제 문서 열기/이력 비교 확인. 7721은 검증용이며 기본 실행 주소는 7720입니다.
+- 운영 주소에서도 빈 보관함 → 문서 2개·이력 1개 가져오기 → 편집·보관 → HWP/HWPX 다운로드·CLI 재검증까지 확인했습니다. 동일 백업의 중복 건너뛰기와 손상 백업 거부, 백업 내보내기 체크섬도 확인했습니다.
+- 플랫폼 Docker 빌드 성공과 `ready`, 운영 루트/상태 경로 200, 운영 JS·CSS의 로컬 빌드와 바이트 일치를 확인했습니다.
 - 브라우저에서 HWPX 열기 → 문장 추가 → 저장 후 CLI 재파싱에서 추가 문장과 표 보존 확인.
 - 360×800, 390×844, 768×1024, 1440×900에서 화면, 페이지 넘침과 주요 조작 확인.
 - 전체 엔진 회귀 테스트 및 Rust 빌드는 수행하지 않았습니다.
@@ -151,7 +155,7 @@ Dockerfile은 `npm ci` → production build → Node 비루트 사용자 실행�
 6. `GET /v1/agent/projects/rhwp-workspace`를 10~15초 간격으로 확인합니다. `last_deployment.status`가 `ready`가 되기 전에는 배포 완료로 취급하지 않습니다. `build_failed`/`release_failed`이면 해당 배포의 오류를 확인하고, 필요하면 `/v1/agent/projects/rhwp-workspace/logs?lines=200`을 조회합니다.
 7. 운영 주소와 `/healthz`, HWP/HWPX 열기·편집·다운로드·보관·백업 이전을 확인합니다. 360×800, 390×844, 768×1024, 1440×900의 화면과 페이지 넘침, 키보드 포커스, 오류·빈 상태, 브라우저 콘솔을 점검하고 실제 결과를 [VERIFICATION.md](VERIFICATION.md)에 기록합니다.
 
-자동 배포는 별도로 켜지 않으며, README만 수정한 경우에도 최종 소스와 운영 상태를 대조합니다. 배포 상태·운영 검증이 아직 확인되지 않았다면 그 사실을 그대로 표시합니다.
+자동 배포는 별도로 켜지 않으며, README만 수정한 경우에도 최종 소스와 운영 상태를 대조합니다. 현재 운영 검증은 완료했으며, 이후 갱신에서 배포 상태·검증이 확인되지 않았다면 그 사실을 그대로 표시합니다.
 
 ## 저장소
 

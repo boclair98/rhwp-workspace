@@ -1,4 +1,4 @@
-# 검증 기록 — 2026-11-04
+# 검증 기록 — 2026-11-04~05
 
 ## 빌드와 구조
 
@@ -69,9 +69,21 @@
 
 이전 단계에서는 사용자 요청에 따라 GitHub와 로컬 실행만 제공했다. 2026-11-05에 사용자가 Coders.kr 배포를 요청하여 게시 범위를 변경했다. 7721 서버를 사용한 기존 기록은 로컬의 출처가 다른 보관함 이전 검증이다.
 
-### Coders.kr 배포 준비 — 2026-11-05
+### Coders.kr 운영 배포 — 2026-11-05
 
 - 현재 `llms.txt`, `ai-create.txt`, 공식 템플릿의 PLATFORM.md를 확인했다. 기존 coders.yaml은 허용된 필드의 native 공개 서비스 web/8080 구성이다.
-- `npm test` 11/11, TypeScript 검사와 Vite production build 통과. 로컬 Docker CLI가 없어 Docker 자체 빌드는 아직 미검증이며 실제 플랫폼 빌드 결과로 확인한다.
+- `npm test` 11/11, TypeScript 검사와 Vite production build 통과. 로컬 Docker CLI는 없지만 실제 Coders 플랫폼 Docker 빌드에서 web 서비스 `SUCCESS`와 배포 `ready`를 확인했다.
 - 조직 저장소가 canonical을 부모로 하는 실제 GitHub fork임을 API로 확인했다.
-- 새 인증 승인 완료. 대상 프로젝트 조회 결과 아직 없으므로 저장소명과 같은 rhwp-workspace 이름으로 배포할 예정이다. 배포와 운영 검증은 진행 중이며 완료 후 이 기록을 갱신한다.
+- 새 인증 승인 후 기존 프로젝트가 없음을 확인하고 rhwp-workspace 이름으로 생성했다. 운영 주소: https://rhwp-workspace.coders.kr. 배포 소스는 canonical GitHub다.
+- 최초 운영 검증 배포 ID: `3f1cab8f-694d-45f7-b08f-8e12fd306fc8`, terminal `ready`. 이후 문서와 검증 화면 반영은 같은 프로젝트에 갱신하며 중복 프로젝트를 만들지 않는다.
+- `/` 200, `/healthz` 200. 공개 상태 경로는 플랫폼의 `text/plain` 응답이며 애플리케이션 JSON 응답으로 해석하지 않았다.
+- 배포 API의 `commit_sha`는 null로 제공되었다. 대신 공개 JS·CSS를 실제로 내려받아 로컬 production build와 바이트 단위 일치를 확인했다. canonical/fork Git SHA는 별도로 비교한다.
+  - JS `/assets/index-CO-GwjLF.js`: SHA-256 `bbf641d1a09224540e804b050e6bee628880398a270a40b16c6754695235af9a`
+  - CSS `/assets/index-BfJIe-wb.css`: SHA-256 `2b3c0284a1252a7d65c69530fb1dae4c2fefee8e6e5bc85f7c222a2099fd2d14`
+- 운영의 빈 보관함에 로컬 백업을 가져와 문서 2개·이력 1개 확인. 문서 재열기 → 운영 검증 문장 입력 → 이름 변경 → 보관 → HWP/HWPX 내보내기. 두 파일 각각 CLI verify에서 추가 문장과 표 1개, 2조건 PASS.
+- 가져온 이전 이력과 현재 문서 비교에서 차이 2개를 확인했다. 원래 메모/파일명/시각도 표시된다.
+- 이름/내용을 바꾼 뒤 원래 백업을 가져오면 원본 항목은 별도로 추가된다. 그 상태에서 같은 백업을 다시 가져오면 추가 0개, 동일 항목 3개 건너뜀. 손상된 이력 체크섬은 기존 문서 3개·이력 1개를 유지하고 오류로 안내한다.
+- 운영에서 내보낸 백업은 문서 3개·이력 1개이며 실제 decoder의 구조/체크섬 검증 통과.
+- 360×800, 390×844, 768×1024, 1440×900 직접 캡처와 검토. 페이지 scrollWidth가 각각 viewport와 같고, 모바일 주요 조작 높이 44px 확인. 모바일 보관함의 스크롤/하단 조작과 Tab/Shift+Tab 순환, Escape/호출 버튼 포커스 복귀 확인.
+- WorkspacePretendard와 메뉴 14px의 운영 computed style 확인. 검증 흐름에서 브라우저 console error/warn 0건.
+- 공개 스크린샷은 screenshots/production-*.jpg이며 직접 만든 기능 확인용 문서만 사용했다. 실제 기기 키보드/IME, 모든 원본 RHWP 기능과 한컴 한글의 전체 서식 호환성은 앞선 미검증 범위와 같다.
