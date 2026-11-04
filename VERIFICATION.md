@@ -67,4 +67,11 @@
 
 ## 게시 범위
 
-사용자 요청으로 Coders.kr 배포를 취소했다. 이번 작업은 canonical `boclair98/rhwp-workspace` GitHub 소스와 로컬 실행만 대상이다. Coders.kr 인증·배포·운영 검증 및 `coders-kr` fork 동기화는 수행하지 않는다. 7721 서버는 출처가 다른 브라우저 저장소로 이전하는 검증에만 사용했다.
+이전 단계에서는 사용자 요청에 따라 GitHub와 로컬 실행만 제공했다. 2026-11-05에 사용자가 Coders.kr 배포를 요청하여 게시 범위를 변경했다. 7721 서버를 사용한 기존 기록은 로컬의 출처가 다른 보관함 이전 검증이다.
+
+### Coders.kr 배포 준비 — 2026-11-05
+
+- 현재 `llms.txt`, `ai-create.txt`, 공식 템플릿의 PLATFORM.md를 확인했다. 기존 coders.yaml은 허용된 필드의 native 공개 서비스 web/8080 구성이다.
+- `npm test` 11/11, TypeScript 검사와 Vite production build 통과. 로컬 Docker CLI가 없어 Docker 자체 빌드는 아직 미검증이며 실제 플랫폼 빌드 결과로 확인한다.
+- 조직 저장소가 canonical을 부모로 하는 실제 GitHub fork임을 API로 확인했다.
+- 새 인증 승인 완료. 대상 프로젝트 조회 결과 아직 없으므로 저장소명과 같은 rhwp-workspace 이름으로 배포할 예정이다. 배포와 운영 검증은 진행 중이며 완료 후 이 기록을 갱신한다.

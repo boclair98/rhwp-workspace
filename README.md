@@ -2,7 +2,7 @@
 
 RHWP 오픈소스를 바탕으로 만든 한국어 HWP/HWPX 문서 편집 작업 공간입니다. 파일을 브라우저에서 열고 수정하여 내려받습니다.
 
-**현재 공개 범위: GitHub 소스 + 로컬 실행. 사용자의 요청에 따라 Coders.kr에는 배포하지 않습니다.**
+**운영 배포 준비 중 (2026-11-05).** 사용자 요청에 따라 Coders.kr의 최신 배포 규약으로 게시합니다. 예정 주소는 [글결](https://rhwp-workspace.coders.kr)이며, 배포 상태 `ready`와 실제 화면 확인 후 이 상태를 갱신합니다. 로컬 실행도 계속 지원합니다.
 
 ![데스크톱 문서 편집 화면](screenshots/desktop.jpg)
 
@@ -51,6 +51,8 @@ RHWP 오픈소스를 바탕으로 만든 한국어 HWP/HWPX 문서 편집 작업
 **작업 이력의 의미:** 저장된 버전과 복구본을 이전합니다. 편집 세션의 Ctrl+Z 실행 취소 스택이나 한컴 한글 앱 내부 기록은 가져오지 않습니다. IR 스냅샷의 문단 식별자는 보존하지만 문서를 다시 열어 식별자가 달라지면 기존 비교 엔진이 정렬 비교로 처리할 수 있습니다. 이력은 버전 비교 자료이며 문서 전체 복원용 파일을 대신하지 않습니다.
 
 브라우저 보안 경계 때문에 다른 웹사이트·다른 포트의 IndexedDB를 자동으로 읽을 수 없습니다. 원래 주소에서 백업을 내보내거나 원본 파일을 선택해야 합니다. 이름만 있는 최근 문서 목록에서 파일 내용을 복원하지 않습니다.
+
+**로컬 → 운영 주소로 이전:** 로컬 글결의 **내 문서 → 백업 내보내기**로 문서·작업 이력을 내려받고, 운영 글결의 **내 문서 → 백업 가져오기**에서 선택하세요. 브라우저가 같아도 `localhost`와 운영 도메인의 보관함은 별개입니다. 운영 배포는 문서 내용을 서버 저장이나 계정별 클라우드 동기화로 전환하지 않습니다.
 
 내 문서는 해당 브라우저/출처에만 남습니다. 브라우저 데이터 삭제·시크릿 모드 종료·저장소 정리 등에 대비해 백업을 별도 보관하세요. 다중 탭에서 같은 보관본을 동시에 편집하는 협업은 지원하지 않습니다.
 
@@ -111,6 +113,7 @@ npm start
 |---|---|---|---|
 | PORT | 정적 서버 포트, 기본 7720 | 아니요 | 로컬 셸 또는 Coders가 서비스 포트 8080 주입 |
 | HOST | 바인딩 주소, 기본 127.0.0.1 | 아니요 | Dockerfile에서 0.0.0.0 |
+| CODERS_AGENT_TOKEN | 수동 배포 API 클라이언트의 인증에만 사용 | 수동 API 호출 시 | 코더스 에이전트 승인으로 발급, 애플리케이션 런타임에 주입하지 않음 |
 
 외부 API 키와 서버 데이터베이스는 필요하지 않습니다. 내 문서는 브라우저 IndexedDB를 사용합니다. 글결 백업 파일과 이전 RHWP 복구본을 가져오는 마이그레이션은 아래 절차를 참고하세요. OAuth나 공식 한컴 서비스 연동은 구현하지 않았습니다.
 
@@ -124,15 +127,38 @@ npm start
 - 전체 엔진 회귀 테스트 및 Rust 빌드는 수행하지 않았습니다.
 - 검증 상세/미검증 항목은 [VERIFICATION.md](VERIFICATION.md)를 참고하세요.
 
-## 게시 범위
+## Coders.kr 배포와 갱신
 
-현재 작업은 사용자 GitHub 저장소에만 커밋·푸시합니다. Coders.kr 인증·배포·재배포는 수행하지 않습니다. Dockerfile과 coders.yaml은 기존 참고 설정이며 이번 변경에서 실행하지 않습니다.
+배포 전에 [현재 에이전트 문서](https://coders.kr/llms.txt)와 [런타임 계약](https://github.com/coders-kr/template-coders/blob/main/PLATFORM.md)을 확인합니다. 이 프로젝트는 기존 TypeScript/Vite와 Node 정적 서버를 유지합니다. `coders.yaml`의 `mode: native`, 공개 서비스 `web`, 컨테이너 포트 `8080`을 사용합니다. 플랫폼이 주입하는 `PORT`에 바인딩하고 `HOST=0.0.0.0`으로 실행합니다. `/healthz`가 상태 확인 경로입니다.
+
+Dockerfile은 `npm ci` → production build → Node 비루트 사용자 실행의 2단계 구성입니다. 서버 데이터베이스·백엔드 API·별도 데이터 마이그레이션 명령은 필요하지 않습니다. 브라우저 IndexedDB는 앱이 필요한 저장소 버전으로 업그레이드하며, 다른 도메인으로 문서를 옮기는 절차는 위 백업 안내를 따릅니다.
+
+1. `npm test`, `npm run build`와 로컬 핵심 문서 흐름을 확인합니다. `.env`, `.coders/`, 문서 업로드, 테스트 결과와 인증 정보가 Git에 포함되지 않았는지 확인합니다.
+2. canonical 저장소의 실제 기본 브랜치 `main`에 커밋·푸시합니다.
+3. `gh repo sync coders-kr/rhwp-workspace -b main`으로 조직 fork를 동기화합니다. fork의 부모가 `boclair98/rhwp-workspace`이고 양쪽 `main`의 전체 SHA가 같은지 확인합니다. 강제 푸시는 사용하지 않습니다.
+4. `POST https://coders.kr/v1/agent/auth/start`로 인증을 시작하고 반환된 승인 페이지에서 소유자가 승인합니다. 발급 토큰은 Git에서 제외된 `.coders/token` 등 승인된 로컬 저장소에 보관합니다. 토큰을 문서·로그·명령 출력에 쓰지 않습니다.
+5. 인증된 `POST https://coders.kr/v1/agent/deploys`에 아래 배포 메타데이터를 보냅니다. 새 배포마다 동일한 프로젝트 이름을 사용해 갱신합니다.
+
+```json
+{
+  "repo": "https://github.com/boclair98/rhwp-workspace",
+  "name": "rhwp-workspace"
+}
+```
+
+모든 코더스 API 요청에 명시적인 `User-Agent: Codex-RHWP-Deploy/1.0`을 사용하고, 인증이 필요한 요청에만 Bearer 토큰을 붙입니다. GitHub 소스 연결을 사용하므로 별도 소스 업로드나 외부 스토리지에 인증 토큰을 보낼 필요가 없습니다.
+
+6. `GET /v1/agent/projects/rhwp-workspace`를 10~15초 간격으로 확인합니다. `last_deployment.status`가 `ready`가 되기 전에는 배포 완료로 취급하지 않습니다. `build_failed`/`release_failed`이면 해당 배포의 오류를 확인하고, 필요하면 `/v1/agent/projects/rhwp-workspace/logs?lines=200`을 조회합니다.
+7. 운영 주소와 `/healthz`, HWP/HWPX 열기·편집·다운로드·보관·백업 이전을 확인합니다. 360×800, 390×844, 768×1024, 1440×900의 화면과 페이지 넘침, 키보드 포커스, 오류·빈 상태, 브라우저 콘솔을 점검하고 실제 결과를 [VERIFICATION.md](VERIFICATION.md)에 기록합니다.
+
+자동 배포는 별도로 켜지 않으며, README만 수정한 경우에도 최종 소스와 운영 상태를 대조합니다. 배포 상태·운영 검증이 아직 확인되지 않았다면 그 사실을 그대로 표시합니다.
 
 ## 저장소
 
-- canonical / origin: https://github.com/boclair98/rhwp-workspace
+- canonical / origin / 배포 소스: https://github.com/boclair98/rhwp-workspace
+- 조직 mirror: https://github.com/coders-kr/rhwp-workspace (`boclair98/rhwp-workspace`의 실제 GitHub fork)
 - 기본 브랜치: main
-- 이전 단계에서 생성한 조직 fork는 기존 상태로 보존합니다. 이번 요청은 사용자 GitHub에만 반영하므로 조직 fork 동기화와 배포는 하지 않습니다.
+- 조직 저장소에서 별도 기능을 개발하지 않습니다. 매 갱신은 canonical 푸시 후 fork 동기화, 전체 SHA 비교를 거칩니다.
 
 ## 보안과 한계
 

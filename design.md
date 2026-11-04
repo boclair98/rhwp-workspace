@@ -94,3 +94,7 @@ Composition contract: hero 해당 없음. 첫 화면은 80px 헤더, 232px 사�
 
 확정 prompt: 글결의 실제 편집기를 읽기 편한 한국어 문서 서비스로 정돈하라. 번들 Pretendard의 실제 굵기 400/500/600/700, 흰색과 회색, 주 행동에만 파란색, 명확한 제목/본문/설명 위계를 사용하라. 작은 장식 타일과 반복 설명을 줄이고 단색 SVG 및 구분선 목록을 사용하라. 기존 메뉴와 편집/저장/이전 기능, 문서 본문의 서식, 모든 명령 id와 이벤트 연결을 유지하라. 실제 화면과 키보드 조작을 검증하라.
 Output target: frontend/src/ui/workspace-shell.ts, frontend/src/ui/workspace-icons.ts, frontend/src/styles/workspace.css, frontend/src/workspace/document-library.ts.
+
+## 배포 범위 변경 — 2026-11-05
+
+사용자가 Coders.kr 배포와 README 갱신을 요청했다. 현재 제품 UI와 문서 엔진을 유지하고 canonical GitHub → 실제 조직 fork 동기화 → 최신 API 배포 → 운영 화면/기능 검증을 수행한다. 앞선 GitHub 전용 제한은 해당 요청 시점의 기록이며 이번 배포 요청에는 적용하지 않는다. 로컬 보관함과 운영 주소의 저장소는 출처가 다르므로 백업으로 이전한다.
