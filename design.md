@@ -98,3 +98,31 @@ Output target: frontend/src/ui/workspace-shell.ts, frontend/src/ui/workspace-ico
 ## 배포 범위 변경 — 2026-11-05
 
 사용자가 Coders.kr 배포와 README 갱신을 요청했다. 현재 제품 UI와 문서 엔진을 유지하고 canonical GitHub → 실제 조직 fork 동기화 → 최신 API 배포 → 운영 화면/기능 검증을 수행한다. 앞선 GitHub 전용 제한은 해당 요청 시점의 기록이며 이번 배포 요청에는 적용하지 않는다. 로컬 보관함과 운영 주소의 저장소는 출처가 다르므로 백업으로 이전한다.
+
+## 편집 공간과 작업 흐름 재구성 — 2026-11-05
+
+이번 목표는 기존 제품을 더 편하게 편집·보관하는 것이다. 현재 코드와 운영 화면을 동일한 Chrome 프로필(기존 보관함/코더스 로그인)에서 새로 캡처했다. 1440×900에서 편집 영역 604px, 360×800에서 제목 160px+도구 258.5px로 편집 영역 345.5px였다. 원본 종이는 100%에서 모바일 폭 밖으로 나간다. 보관함은 자주 쓰지 않는 백업/이전 작업까지 5개 버튼으로 항상 노출한다. 캡처/근거는 UX_REVIEW.md에 남긴다.
+
+확정 방향: **문서 중심의 간편 편집 + 펼쳐 쓰는 전체 도구** 1개. 새 홈/랜딩/라우트나 AI 기능은 만들지 않는다. 기존 편집기/디스패처/저장소/파일 입력과 다운로드, 모든 원본 메뉴를 보존한다.
+
+Resolved inputs: Topic=HWP/HWPX 문서 작업, Offer=편집·저장·브라우저 보관·이전, Audience=기존 한글 문서 사용자, Primary action=파일 열기/보관 문서 재열기, Deliverable=편집기+내 문서 UX 개선, Style=기존 Pretendard/흰색·회색/절제된 파랑, Tone=짧고 구체적, Icon policy=Lucide ISC의 실제 아이콘 재사용, Proof=이번 점검의 실제 화면과 직접 만든 시험 문서, Motion=120ms 조작 피드백/reduced-motion.
+
+Composition contract: hero 없음. 데스크톱 제목 64px, 메뉴 36px, 간편 도구 약 52px, 접을 수 있는 208px 탐색 패널과 종이 캔버스. 간편 도구는 되돌리기/다시 실행, 글꼴·크기·굵게/기울임/밑줄·정렬·표·찾기를 기존 컨트롤/명령에 연결한다. 전체 도구 버튼은 원본 메뉴/리본/서식을 펼치며 기존 사용자 설정을 삭제하지 않는다. 모바일은 제목 약108px+간편 도구 약52px, 서식 전용 창과 폭 맞춤, 전체 도구로 필수 기능에 접근한다. 모바일 패널은 배경 가림·Escape·포커스 순환/복귀를 지원한다.
+
+색/글꼴은 기존 의미 토큰 유지. text #191f28, secondary #4e5968, muted #6b7684, surface #fff, workspace #f2f4f6, border #e5e8eb, primary button #1b64da, focus #3182f6. Pretendard 실제 400/500/600/700. 제목16/600, 기본14/400~500, 보조12~13/400, 주요 조작44px 이상(데스크톱 편집 도구36px). 8/12/16/24px 간격과 8~12px 반경. 현재 문서의 글꼴/서식/종이 크기는 변경하지 않는다.
+
+내 문서: 파일 영역 전체를 버튼으로 만들어 한 번에 재열기. 이름 검색+형식 필터+최근 수정/이름 정렬. 가져오기와 이력은 바로 접근하고 백업/이전은 명시적 펼침 아래 배치한다. 보관/다운로드 상태와 로컬 저장 경계를 정확히 안내한다. 기존 백업 버전/체크섬/원자성 정책은 그대로 유지한다.
+
+참고: Microsoft의 간소화 리본/전체 도구 전환, Google Docs의 compact mode/fit, WAI-ARIA toolbar의 버튼 방향키 이동, SEED의 의미 토큰/상태 일관성. 해당 제품의 자산이나 화면은 복제하지 않는다. Sources.md에 공식 원문 링크와 채택 범위를 기록한다.
+
+실제 경로: workspace-shell.ts, 신규 workspace-editor-tools.ts, workspace-icons.ts, workspace.css, document-library.ts, package/lock, README/VERIFICATION/UX_REVIEW/SOURCES. 문서 엔진/core/view와 저장 모델은 보존한다. 추가 도구는 native 필드의 이벤트와 dispatcher를 통해 적용하며 직접 문서 모델을 변경하지 않는다.
+
+검증: 새 간편 도구의 실행/반영/비활성/단축키·포커스·전체 도구 전환, 모바일 서식 창, 보관함 검색/필터/정렬/백업 오류. HWP/HWPX 편집→저장→재파싱, 기존 저장소11테스트와 build. 360/390/768/1440 스크린샷과 편집 공간 높이를 같은 조건에서 비교. canonical→fork 동일 SHA→기존 프로젝트 재배포→운영 기능/화면 확인.
+
+확정 prompt: 현재 글결을 문서 중심의 차분한 편집기로 재구성하라. 간편 도구를 기본으로 제공하고 전체 명령은 펼쳐 접근하게 하라. 모바일에서 제목·도구가 문서 공간을 과도하게 차지하지 않게 하고 별도 서식 창과 명확한 배율 조작을 제공하라. 내 문서는 큰 파일 열기 영역·검색·필터·정렬로 구성하고 백업은 펼쳐 쓰게 하라. 기존 기능과 데이터·명령 계약을 보존하고 실제 파일 왕복과 키보드/반응형을 검증하라.
+Output target: 기존 frontend TypeScript/CSS 및 제품 문서, Coders.kr 기존 프로젝트.
+## 임시 제품명과 재배포 — 2026-11-05
+
+사용자 요청에 따라 표시 이름을 **오픈소스 한글**로 변경한다. RHWP 기반 독립 오픈소스 편집기임을 이용 안내와 README에 표시한다. 한컴 공식 제품·공식 연동이라고 표시하지 않는다. 저장소/배포 slug와 IndexedDB/백업 format 식별자는 유지해 기존 문서·이력·백업을 계속 읽는다. 상단 브랜드와 브라우저 제목, 백업 파일명, 화면 설명을 일관되게 수정한다.
+
+이름이 길어지는 모바일에서는 워드마크를 15px/700으로 표시하고 기존 44px 주요 조작을 유지한다. 제목바 120px, 간편 도구 53px 구성을 확인한다. 변경 파일: frontend/index.html, ui/workspace-shell.ts, ui/document-title.ts, workspace/document-library.ts, library-model.ts, library-store.ts, workspace.css와 README/검증 문서. 기존에 미게시된 v0.3 개선을 함께 검증·게시한다. 기본 밝은 테마의 네 뷰포트, HWP/HWPX 편집·저장·보관과 문서 이전, 운영 JS/CSS 일치를 확인한다.

@@ -1942,7 +1942,7 @@ const catalog = {
   "ui.sbZoomOut.tooltip": "축소",
   "ui.sbZoomRange.ariaLabel": "화면 확대/축소 배율",
   "ui.scrollContainer.ariaLabel": "문서 페이지",
-  "ui.studioHeader.srLabel": "rhwp-studio 문서 편집기",
+  "ui.studioHeader.srLabel": "오픈소스 한글 문서 편집기",
   "ui.styleBar.fieldLabel.x76905b": "크기",
   "ui.styleBar.fieldLabel.x7c16df": "글꼴",
   "ui.styleBar.fieldLabel.x9c591b": "스타일",

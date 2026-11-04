@@ -1942,7 +1942,7 @@ const catalog = {
   "ui.sbZoomOut.tooltip": "Zoom Out",
   "ui.sbZoomRange.ariaLabel": "Zoom level",
   "ui.scrollContainer.ariaLabel": "Document pages",
-  "ui.studioHeader.srLabel": "rhwp-studio document editor",
+  "ui.studioHeader.srLabel": "Open-source Hangul document editor",
   "ui.styleBar.fieldLabel.x76905b": "Size",
   "ui.styleBar.fieldLabel.x7c16df": "Font",
   "ui.styleBar.fieldLabel.x9c591b": "Style",

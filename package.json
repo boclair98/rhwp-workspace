@@ -1,6 +1,6 @@
 {
   "name": "rhwp-workspace",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
   "license": "MIT",
@@ -14,7 +14,8 @@
   },
   "dependencies": {
     "@noble/hashes": "2.4.0",
-    "canvaskit-wasm": "0.42.0"
+    "canvaskit-wasm": "0.42.0",
+    "lucide": "1.68.0"
   },
   "devDependencies": {
     "@types/chrome": "0.3.4",

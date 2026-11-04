@@ -17,4 +17,4 @@ http.createServer((req,res)=>{
   res.writeHead(200,{'Content-Type':types[path.extname(file)]||'application/octet-stream','Content-Length':stat.size,'X-Content-Type-Options':'nosniff','Referrer-Policy':'strict-origin-when-cross-origin','Cache-Control':requested.startsWith('/assets/')?'public, max-age=31536000, immutable':'no-cache'});
   if(req.method==='HEAD'){res.end();return;}fs.createReadStream(file).pipe(res);
  });
-}).listen(port,process.env.HOST||'127.0.0.1',()=>console.log(`글결: http://${process.env.HOST||'127.0.0.1'}:${port}`));
+}).listen(port,process.env.HOST||'127.0.0.1',()=>console.log(`오픈소스 한글: http://${process.env.HOST||'127.0.0.1'}:${port}`));

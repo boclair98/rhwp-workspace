@@ -1,3 +1,4 @@
+import { workspaceDialog as panel } from '../ui/workspace-dialog';
 import type { WasmBridge } from '../core/wasm-bridge';
 import type { EventBus } from '../core/event-bus';
 import type { DocumentDirtyState } from '../core/document-dirty-state';
@@ -69,60 +70,6 @@ function errorText(error: unknown): string {
   return error instanceof Error
     ? error.message
     : '작업을 완료하지 못했습니다. 파일 저장으로 내려받고 다시 시도해 주세요.';
-}
-function panel(title: string): {
-  dialog: HTMLDialogElement;
-  body: HTMLElement;
-  footer: HTMLElement;
-  close: () => void;
-} {
-  const previous = document.activeElement as HTMLElement | null;
-  const dialog = el('dialog', '', 'workspace-dialog modal-overlay');
-  const heading = el('header', '', 'workspace-dialog-header');
-  const id = `workspace-dialog-${crypto.randomUUID()}`;
-  const label = el('h2', title);
-  label.id = id;
-  dialog.setAttribute('aria-labelledby', id);
-  const close = () => dialog.close();
-  const closeButton = button('닫기', close);
-  closeButton.setAttribute('aria-label', `${title} 닫기`);
-  heading.append(label, closeButton);
-  const body = el('div', '', 'workspace-dialog-body');
-  const footer = el('footer', '', 'workspace-dialog-footer');
-  dialog.append(heading, body, footer);
-  dialog.addEventListener('keydown', (event) => {
-    if (event.key === 'Tab') {
-      const targets = Array.from(
-        dialog.querySelectorAll<HTMLElement>(
-          'button:not(:disabled),input:not(:disabled),select:not(:disabled),a[href]',
-        ),
-      ).filter((node) => node.getClientRects().length > 0);
-      const first = targets[0],
-        last = targets[targets.length - 1];
-      if (event.shiftKey && document.activeElement === first) {
-        event.preventDefault();
-        last?.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault();
-        first?.focus();
-      }
-    }
-    event.stopPropagation();
-  });
-  dialog.addEventListener(
-    'close',
-    () => {
-      dialog.remove();
-      const target = previous?.getClientRects().length
-        ? previous
-        : document.getElementById('workspace-nav-toggle');
-      target?.focus();
-    },
-    { once: true },
-  );
-  document.body.append(dialog);
-  dialog.showModal();
-  return { dialog, body, footer, close };
 }
 const formatTime = (time: number) =>
   new Date(time).toLocaleString('ko-KR', {
@@ -228,10 +175,12 @@ export function installDocumentLibrary(
       : saving
         ? '브라우저에 보관 중…'
         : currentId && savedRevision === revision
-          ? `브라우저 보관됨 · ${formatTime(savedAt)}`
+          ? `브라우저 보관됨 · ${new Date(savedAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false })}`
           : currentId
             ? '브라우저 보관 대기'
             : '브라우저 미보관';
+    if (state.isDirty()) status.textContent += ' · 파일 저장 필요';
+    status.title = savedAt ? new Date(savedAt).toLocaleString('ko-KR') : '';
     status.classList.toggle('has-error', !!lastError);
   }
   function showFailure(error: unknown): void {
@@ -341,7 +290,7 @@ export function installDocumentLibrary(
     const view = panel('내 문서');
     const intro = el(
       'p',
-      '이 브라우저에 보관한 문서예요. 브라우저 데이터를 지우기 전에는 백업을 내려받으세요.',
+      '이 브라우저에 보관한 문서입니다. 파일을 선택하면 이어서 편집할 수 있어요.',
       'workspace-muted',
     );
     const search = el('input');
@@ -350,9 +299,39 @@ export function installDocumentLibrary(
     search.setAttribute('aria-label', '보관 문서 검색');
     const summary = el('p', '', 'workspace-muted');
     const list = el('div', '', 'workspace-library-list');
+    const options = el('div', '', 'workspace-library-options');
+    const filters = el('div', '', 'workspace-library-filters');
+    filters.setAttribute('role', 'group');
+    filters.setAttribute('aria-label', '문서 형식 필터');
+    let format: 'all' | 'hwp' | 'hwpx' = 'all';
+    const filterButtons = (['all', 'hwp', 'hwpx'] as const).map((value) => {
+      const node = button(
+        value === 'all' ? '전체' : value.toUpperCase(),
+        () => {
+          format = value;
+          render();
+        },
+        'workspace-filter-button',
+      );
+      node.setAttribute('aria-pressed', String(value === 'all'));
+      filters.append(node);
+      return { value, node };
+    });
+    const sort = el('select');
+    sort.setAttribute('aria-label', '문서 정렬');
+    for (const [value, label] of [
+      ['recent', '최근 수정순'],
+      ['name', '이름순'],
+    ]) {
+      const option = el('option', label);
+      option.value = value;
+      sort.append(option);
+    }
+    sort.addEventListener('change', render);
+    options.append(filters, sort);
     const message = el('p', '', 'workspace-inline-message');
     message.setAttribute('role', 'status');
-    view.body.append(intro, search, summary, list, message);
+    view.body.append(intro, search, options, summary, list, message);
     let rows: LibraryDocument[] = [];
     let history: ArchivedHistory[] = [];
     function render(): void {
@@ -366,18 +345,30 @@ export function installDocumentLibrary(
           : `${(usedBytes / 1024 / 1024).toFixed(1)}MB`;
       summary.textContent = `문서 ${rows.length}개 · 이전 이력 ${history.length}개 · ${used} / 50MB`;
       list.replaceChildren();
-      const filtered = rows.filter((row) =>
-        row.fileName
-          .toLocaleLowerCase()
-          .includes(search.value.trim().toLocaleLowerCase()),
+      filterButtons.forEach((item) =>
+        item.node.setAttribute('aria-pressed', String(format === item.value)),
+      );
+      const filtered = rows.filter(
+        (row) =>
+          (format === 'all' || row.format === format) &&
+          row.fileName
+            .toLocaleLowerCase()
+            .includes(search.value.trim().toLocaleLowerCase()),
+      );
+      filtered.sort((a, b) =>
+        sort.value === 'name'
+          ? a.fileName.localeCompare(b.fileName, 'ko')
+          : b.updatedAt - a.updatedAt,
       );
       if (!filtered.length) {
         list.append(
           el(
             'div',
-            rows.length
-              ? '검색한 이름의 문서가 없어요. 다른 이름으로 찾아보세요.'
-              : '아직 보관한 문서가 없어요. 문서를 가져오거나 편집 화면에서 보관해 보세요.',
+            !rows.length
+              ? '아직 보관한 문서가 없어요. 문서를 가져오거나 편집 화면에서 보관해 보세요.'
+              : search.value.trim()
+                ? '검색한 이름의 문서가 없어요. 다른 이름으로 찾아보세요.'
+                : `${format.toUpperCase()} 문서가 없어요. 문서 가져오기로 추가해 보세요.`,
             'workspace-empty',
           ),
         );
@@ -423,11 +414,17 @@ export function installDocumentLibrary(
           })();
         });
         open.setAttribute('aria-label', `${row.fileName} 열기`);
-        const remove = button('삭제', () => {
+        open.textContent = '';
+        open.className = 'workspace-library-open';
+        open.append(fileIcon, info);
+        const remove = button('', () => {
           void confirmRemove(row);
         });
         remove.setAttribute('aria-label', `${row.fileName} 보관본 삭제`);
-        item.append(fileIcon, info, open, remove);
+        remove.title = '보관본 삭제';
+        remove.classList.add('workspace-library-delete');
+        remove.innerHTML = workspaceIcon('trash');
+        item.append(open, remove);
         list.append(item);
       }
     }
@@ -510,7 +507,7 @@ export function installDocumentLibrary(
         const data = await encodeWorkspaceBackup(all, snapshots);
         download(
           new Blob([data], { type: 'application/json' }),
-          '글결-문서백업.json',
+          '오픈소스 한글-문서백업.json',
         );
         return `문서 ${all.length}개 · 작업 이력 ${snapshots.length}개 백업 다운로드를 시작했습니다.`;
       });
@@ -614,13 +611,44 @@ export function installDocumentLibrary(
       viewHistory,
     ];
     documentsButton.classList.add('workspace-primary');
-    view.footer.append(...controls, file, documentsInput);
+    const backupPanel = el('section', '', 'workspace-backup-panel');
+    backupPanel.id = 'workspace-backup-panel';
+    backupPanel.hidden = true;
+    backupPanel.append(
+      el('h3', '백업과 문서 이전'),
+      el(
+        'p',
+        '브라우저 데이터를 지우거나 기기를 옮기기 전에 백업을 내려받으세요. 백업에는 문서 내용과 저장된 작업 이력이 포함됩니다.',
+        'workspace-muted',
+      ),
+    );
+    const backupActions = el('div', '', 'workspace-backup-actions');
+    backupActions.append(exportButton, importButton, recovery);
+    backupPanel.append(backupActions);
+    view.body.append(backupPanel);
+    const backupToggle = button('백업·이전', () => {
+      backupPanel.hidden = !backupPanel.hidden;
+      backupToggle.setAttribute('aria-expanded', String(!backupPanel.hidden));
+      if (!backupPanel.hidden) {
+        backupPanel.scrollIntoView({ block: 'nearest' });
+        exportButton.focus();
+      }
+    });
+    backupToggle.setAttribute('aria-expanded', 'false');
+    backupToggle.setAttribute('aria-controls', backupPanel.id);
+    controls.push(backupToggle);
+    view.footer.append(
+      documentsButton,
+      viewHistory,
+      backupToggle,
+      file,
+      documentsInput,
+    );
     search.addEventListener('input', render);
     message.textContent = '보관 목록을 불러오는 중…';
     try {
       await refresh();
-      message.textContent =
-        '기기를 옮길 때는 문서와 작업 이력을 백업으로 가져갈 수 있어요.';
+      message.textContent = '';
     } catch (error) {
       message.textContent = errorText(error);
     }

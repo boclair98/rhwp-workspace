@@ -140,13 +140,13 @@ export async function decodeBackup(text: string): Promise<LibraryDocument[]> {
     );
   }
   if (!parsed || typeof parsed !== 'object')
-    throw new Error('글결 백업 파일이 아닙니다.');
+    throw new Error('오픈소스 한글 백업 파일이 아닙니다.');
   const value = parsed as Record<string, unknown>;
   if (value.format !== 'geulgyeol-workspace')
-    throw new Error('글결에서 내보낸 백업 파일을 선택해 주세요.');
+    throw new Error('오픈소스 한글에서 내보낸 백업 파일을 선택해 주세요.');
   if (value.version !== 1)
     throw new Error(
-      '지원하지 않는 백업 버전입니다. 원래 글결 버전에서 다시 내보내 주세요.',
+      '지원하지 않는 백업 버전입니다. 원래 오픈소스 한글 버전에서 다시 내보내 주세요.',
     );
   if (!Array.isArray(value.documents) || value.documents.length > MAX_DOCUMENTS)
     throw new Error('백업의 문서 목록을 확인할 수 없습니다.');

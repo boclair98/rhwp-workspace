@@ -34,7 +34,7 @@ function openDb(): Promise<IDBDatabase> {
         ),
       );
     req.onblocked = () =>
-      reject(new Error('다른 글결 탭을 닫고 다시 시도해 주세요.'));
+      reject(new Error('다른 오픈소스 한글 탭을 닫고 다시 시도해 주세요.'));
   });
 }
 export async function listDocuments(): Promise<LibraryDocument[]> {

@@ -13,8 +13,8 @@ export function installDocumentTitle(
   );
   const update = () => {
     document.title = bridge.hasLoadedDocument()
-      ? (appModes.matches ? bridge.fileName : `${bridge.fileName} - 글결`)
-      : '글결';
+      ? (appModes.matches ? bridge.fileName : `${bridge.fileName} - 오픈소스 한글`)
+      : '오픈소스 한글';
   };
   bridge.onFileNameChanged = update;
   appModes.addEventListener('change', update);
