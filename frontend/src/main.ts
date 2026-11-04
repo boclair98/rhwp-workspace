@@ -1479,6 +1479,7 @@ async function initializeDocument(
     // 최종 단계 뒤에는 비동기 작업이 없으므로 100% progress paint를 기다리지 않는다.
     msg.textContent = displayName;
     console.log('[initDoc] 9. 완료');
+    eventBus.emit('document-loaded');
 
     // #2527: 자동 보정을 하지 않으므로 로드 직후 문서는 항상 clean.
     documentState.markClean('document-initialized');

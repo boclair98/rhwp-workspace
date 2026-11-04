@@ -22,3 +22,7 @@
 
 
 운영 검증은 새 배포 ready 후 수행했다. [PC 편집](screenshots/production-desktop.jpg) · [360px 편집](screenshots/production-mobile-360.jpg) · [모바일 서식 창](screenshots/production-mobile-format.jpg) · [PC 보관함](screenshots/production-library-desktop.jpg) · [모바일 보관함](screenshots/production-library-mobile.jpg). 새 이름과 기존 문서 입출력·보관·백업 동작을 함께 확인했다. 상세 명령/결과/미검증 범위는 [VERIFICATION.md](VERIFICATION.md)에 남겼다.
+
+## v0.3.1 실제 HWP 흐름
+
+실제 파일 기반 단계별 결과는 [HWP_CHECKS.md](HWP_CHECKS.md)에 정리했다. 쪽 이동/배율·서식/표 입력·키보드/HWP 저장·재열기는 해당 범위 통과이며, 독후감의 HWPX 페이지 배치는 한계가 남아 있다. 44px 조작, 짧은 모바일 배율 창, 회전 시 선택한 맞춤 유지, 행·열 직접 입력과 native dialog 포커스를 보완했다. 실제 휴대전화 터치/IME 결과로 확대 해석하지 않는다.

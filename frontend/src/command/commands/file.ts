@@ -288,6 +288,9 @@ async function promptSaveAsOptions(
     {
       allowPassword: passwordFormat,
       inheritPassword: protectedDoc && passwordFormat,
+      formatNotice: services.wasm.getSourceFormat() === 'hwp' && format === 'hwpx'
+        ? 'HWPX로 변환하면 표·글상자 배치나 쪽 수가 달라질 수 있어요. 원래 서식을 유지하려면 HWP로 저장하고, 변환본은 다시 열어 확인해 주세요.'
+        : undefined,
     },
   );
   if (selection === null) return null;

@@ -191,7 +191,7 @@
   /* 키보드가 올라온 상태: 도구 영역 최소화 */
   #menu-bar { display: none; }
   #style-bar { display: none; }
-  #status-bar { display: none; }
+  /* Keep page navigation and zoom available in the workspace's compact mobile layout. */
 }
 
 /* ─── 인쇄 ──────────────────────────────────────────── */

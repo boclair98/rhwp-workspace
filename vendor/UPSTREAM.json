@@ -27,7 +27,9 @@
     "Plain-language history and loading status copy",
     "Compact editing controls, expandable original ribbon, mobile formatting dialog and accessible navigation",
     "Document library type filtering, sorting and collapsible backup actions",
-    "Temporary Open-source Hangul display name, preserving existing storage and backup identifiers"
+    "Temporary Open-source Hangul display name, preserving existing storage and backup identifiers",
+    "Touch-sized page/zoom controls, responsive fit rules and mobile zoom/table dialogs",
+    "Keyboard menu activation, accessible field names and documented HWPX conversion layout differences"
   ],
   "engineModified": false,
   "iconLibrary": {

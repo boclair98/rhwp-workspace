@@ -1613,5 +1613,125 @@ summary:focus-visible,
 }
 
 /* Temporary product name uses a longer wordmark while keeping file actions usable. */
-.workspace-wordmark { font-size: 20px; white-space: nowrap; }
-@media (max-width: 600px) { .workspace-wordmark { font-size: 15px; } }
+.workspace-wordmark {
+  font-size: 20px;
+  white-space: nowrap;
+}
+@media (max-width: 600px) {
+  .workspace-wordmark {
+    font-size: 15px;
+  }
+}
+
+/* v0.3.1: touch-sized page/zoom controls and short-screen editing. */
+.workspace-zoom-dialog {
+  width: min(420px, calc(100vw - 24px));
+}
+.workspace-zoom-current {
+  font-size: 22px;
+  font-weight: 600;
+  margin: 0 0 8px;
+}
+.workspace-zoom-presets {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 20px 0 12px;
+}
+.workspace-zoom-fits {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.workspace-zoom-dialog .workspace-button {
+  min-height: 48px;
+  font-size: 16px;
+}
+.workspace-zoom-presets [aria-pressed='true'] {
+  color: var(--accent-strong);
+  background: var(--ui-accent-bg);
+  box-shadow: inset 0 0 0 1px var(--accent-strong);
+}
+@media (max-width: 900px) {
+  #studio-root {
+    grid-template-rows: 64px auto minmax(0, 1fr) calc(
+        44px + env(safe-area-inset-bottom)
+      );
+  }
+  #studio-root #status-bar {
+    height: calc(44px + env(safe-area-inset-bottom)) !important;
+    min-height: 44px;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  #status-bar button {
+    height: 44px;
+    min-height: 44px;
+    min-width: 44px;
+  }
+  #status-bar #sb-page {
+    padding: 0 8px;
+    font-size: 12px;
+  }
+  #status-bar #sb-zoom-display {
+    justify-content: center;
+    font-size: 13px;
+  }
+  .workspace-dialog input,
+  .workspace-dialog select {
+    font-size: 16px;
+  }
+}
+@media (max-width: 600px) {
+  #studio-root {
+    grid-template-rows: 120px auto minmax(0, 1fr) calc(
+        44px + env(safe-area-inset-bottom)
+      );
+  }
+}
+@media (max-height: 500px) and (max-width: 900px) {
+  #workspace-quickbar {
+    order: 0;
+    min-height: 52px;
+    padding: 4px 8px;
+    gap: 6px;
+  }
+  .workspace-desktop-tools {
+    display: none;
+  }
+  .workspace-mobile-tools {
+    display: flex;
+    flex: 1;
+    justify-content: space-evenly;
+  }
+  #workspace-quickbar .workspace-tool-button {
+    height: 44px;
+    min-width: 44px;
+    font-size: 13px;
+  }
+  #studio-root.workspace-compact:not(.workspace-advanced) #menu-bar {
+    display: none;
+  }
+  .workspace-dialog-header {
+    padding: 12px 20px;
+  }
+  .workspace-dialog-footer {
+    padding: 12px 20px;
+  }
+  .workspace-dialog h2 {
+    font-size: 20px;
+  }
+}
+@media (max-width: 900px) {
+  .workspace-table-dialog .dialog-input, .workspace-table-dialog .dialog-select { min-height: 44px; font-size: 16px; }
+  .workspace-table-dialog .dialog-body { min-width: 0; flex-wrap: wrap; }
+  .workspace-table-dialog .dialog-body > div { min-width: 0; }
+  .workspace-table-dialog .dialog-row { flex-wrap: wrap; gap: 8px; }
+}
+.workspace-table-dialog input[type='number'] { padding: 6px 8px; min-width: 80px; }
+.workspace-table-dialog input[type='checkbox'] { width: 20px; min-width: 20px; height: 20px; min-height: 20px; padding: 0; margin: 0; }
+.workspace-table-checkbox { display: flex; align-items: center; gap: 10px; min-height: 44px; }
+.workspace-table-checkbox label { display: flex; align-items: center; min-height: 44px; font-size: 14px !important; margin: 0; }
+.workspace-save-format-notice { margin: 16px 0 0; padding: 12px; border-radius: 8px; background: var(--ui-surface-muted); color: var(--ui-text-secondary); font-size: 14px; line-height: 1.6; word-break: keep-all; overflow-wrap: anywhere; }
+@media (max-width: 900px) {
+  .workspace-save-as-body input { font-size: 16px !important; min-height: 44px; }
+}

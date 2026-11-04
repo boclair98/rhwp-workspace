@@ -15,6 +15,7 @@ export interface SaveAsDialogResult {
 }
 
 export interface SaveAsDialogOptions {
+  formatNotice?: string;
   allowPassword?: boolean;
   inheritPassword?: boolean;
 }
@@ -29,6 +30,7 @@ class SaveAsDialog extends ModalDialog {
     private readonly format: SaveFormat,
     private readonly allowPassword: boolean,
     private readonly inheritPassword: boolean,
+    private readonly formatNotice = '',
   ) {
     super(t('dialog.saveAs.title'), 380);
     this.defaultName = defaultName;
@@ -36,6 +38,7 @@ class SaveAsDialog extends ModalDialog {
 
   protected createBody(): HTMLElement {
     const body = document.createElement('div');
+    body.className = 'workspace-save-as-body';
     body.style.padding = '16px 20px';
 
     const label = document.createElement('label');
@@ -47,6 +50,7 @@ class SaveAsDialog extends ModalDialog {
 
     this.input = document.createElement('input');
     this.input.type = 'text';
+    this.input.setAttribute('aria-label', t('dialog.saveAs.label.text').replace(/\([^)]*\)|[:：]/g, '').trim());
     this.input.value = this.defaultName;
     this.input.style.width = '100%';
     this.input.style.boxSizing = 'border-box';
@@ -61,6 +65,12 @@ class SaveAsDialog extends ModalDialog {
       }
     });
     body.appendChild(this.input);
+    if (this.formatNotice) {
+      const note = document.createElement('p');
+      note.className = 'workspace-save-format-notice';
+      note.textContent = this.formatNotice;
+      body.appendChild(note);
+    }
 
     if (this.inheritPassword) {
       const note = document.createElement('p');
@@ -161,5 +171,6 @@ export function showSaveAs(
     format,
     options.allowPassword === true,
     options.inheritPassword === true,
+    options.formatNotice,
   ).showAsync();
 }

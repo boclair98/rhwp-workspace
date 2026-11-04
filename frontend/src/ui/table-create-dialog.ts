@@ -16,7 +16,7 @@
  */
 
 import { makeOption } from './dom-utils';
-import { enableDialogDrag } from './dialog-drag';
+import { workspaceDialog } from './workspace-dialog';
 import { HWPUNIT_PER_MM } from '@/core/hwp-constants';
 
 import { t as i18nText } from '../i18n/index.ts';
@@ -63,6 +63,10 @@ export class TableCreateDialog {
    * @param anchor 앵커 요소 — 있으면 아래에 위치, 없으면 화면 중앙
    */
   show(anchor?: HTMLElement): void {
+    if (matchMedia('(max-width:900px)').matches) {
+      this.showInputDialog();
+      return;
+    }
     if (!this.built) this.build();
     this.hoverRow = -1;
     this.hoverCol = -1;
@@ -253,31 +257,12 @@ export class TableCreateDialog {
    *  └─────────────────────────────┴───────────┘
    */
   private showInputDialog(): void {
-    const overlay = document.createElement('div');
-    overlay.className = 'modal-overlay';
-
-    const dlg = document.createElement('div');
-    dlg.className = 'dialog-wrap';
-    dlg.style.width = '420px';
-
-    // 오버레이 내부에 대화상자를 넣어야 flex 센터링이 작동함
-    overlay.appendChild(dlg);
-    // 타이틀
-    const title = document.createElement('div');
-    title.className = 'dialog-title';
-    title.textContent = i18nText('dialog.tableCreate.title.text');
-    const closeBtn = document.createElement('button');
-    closeBtn.className = 'dialog-close';
-    closeBtn.textContent = '\u00D7';
-    closeBtn.addEventListener('click', close);
-    title.appendChild(closeBtn);
-    dlg.appendChild(title);
-    enableDialogDrag(dlg, title);
-
-    // 본문: 좌측 폼 + 우측 버튼
-    const body = document.createElement('div');
-    body.className = 'dialog-body';
-    body.style.cssText = 'display:flex;gap:16px;padding:12px 16px;';
+    const view = workspaceDialog(i18nText('dialog.tableCreate.title.text'));
+    const dlg = view.dialog;
+    dlg.classList.add('workspace-table-dialog');
+    dlg.style.width = 'min(420px, calc(100vw - 24px))';
+    const body = view.body;
+    body.classList.add('dialog-body');
 
     // ── 좌측: 폼 영역 ──
     const form = document.createElement('div');
@@ -345,7 +330,7 @@ export class TableCreateDialog {
     // 기타 섹션
     const sec3 = createSection(i18nText('dialog.tableCreate.createSection.label.x5babec'));
     const treatRow = document.createElement('div');
-    treatRow.className = 'dialog-row';
+    treatRow.className = 'dialog-row workspace-table-checkbox';
     const treatChk = document.createElement('input');
     treatChk.type = 'checkbox';
     treatChk.id = 'tc-treat-as-char';
@@ -362,23 +347,15 @@ export class TableCreateDialog {
     body.appendChild(form);
 
     // ── 우측: 버튼 영역 ──
-    const btnCol = document.createElement('div');
-    btnCol.style.cssText = 'display:flex;flex-direction:column;gap:6px;padding-top:2px;';
     const okBtn = document.createElement('button');
-    okBtn.className = 'dialog-btn dialog-btn-primary';
+    okBtn.className = 'workspace-button workspace-primary';
     okBtn.textContent = i18nText('dialog.tableCreate.okBtn.text');
-    okBtn.style.width = '72px';
     okBtn.addEventListener('click', doApply);
     const cancelBtn2 = document.createElement('button');
-    cancelBtn2.className = 'dialog-btn';
+    cancelBtn2.className = 'workspace-button';
     cancelBtn2.textContent = i18nText('dialog.tableCreate.cancelBtn2.text');
-    cancelBtn2.style.width = '72px';
     cancelBtn2.addEventListener('click', close);
-    btnCol.appendChild(okBtn);
-    btnCol.appendChild(cancelBtn2);
-    body.appendChild(btnCol);
-
-    dlg.appendChild(body);
+    view.footer.append(cancelBtn2, okBtn);
 
     // 키보드
     dlg.addEventListener('keydown', (e: KeyboardEvent) => {
@@ -387,8 +364,11 @@ export class TableCreateDialog {
     });
 
     const self = this;
-    function close() { overlay.remove(); }
+    let applying = false;
+    function close() { view.close(); }
     function doApply() {
+      if (applying) return;
+      applying = true;
       const rows = Math.max(1, Math.min(256, parseInt(rowInput.value, 10) || 2));
       const cols = Math.max(1, Math.min(256, parseInt(colInput.value, 10) || 3));
       const options: TableCreateOptions = { treatAsChar: treatChk.checked };
@@ -400,11 +380,10 @@ export class TableCreateDialog {
         const rowHeight = mmToHwpunit(Math.max(1, parseFloat(heightVal.value) || 22.6));
         options.rowHeights = Array.from({ length: rows }, () => rowHeight);
       }
+      dlg.addEventListener('close', () => self.onApply?.(rows, cols, options), { once: true });
       close();
-      if (self.onApply) self.onApply(rows, cols, options);
     }
 
-    document.body.appendChild(overlay);
     rowInput.focus();
     rowInput.select();
   }
@@ -429,6 +408,7 @@ function createSpinnerRow(parent: HTMLElement, labelText: string, defaultVal: nu
   const input = document.createElement('input');
   input.className = 'dialog-input';
   input.type = 'number';
+  input.setAttribute('aria-label', labelText);
   input.min = String(min);
   input.max = String(max);
   input.value = String(defaultVal);

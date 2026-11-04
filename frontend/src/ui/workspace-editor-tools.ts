@@ -3,6 +3,7 @@ import type { EventBus } from '../core/event-bus';
 import type { CommandDispatcher } from '../command/dispatcher';
 import { workspaceIcon } from './workspace-icons';
 import { workspaceDialog } from './workspace-dialog';
+import { installWorkspaceZoom } from './workspace-zoom';
 
 type Binding = {
   button: HTMLButtonElement;
@@ -264,6 +265,21 @@ export function installEditorTools(
         command('문서 폭 맞춤', 'fit', 'view:zoom-fit-width', '폭 맞춤'),
       );
       view.body.append(zooms);
+      const table = button(
+        '표 만들기',
+        'table',
+        () => {
+          view.dialog.addEventListener(
+            'close',
+            () => dispatcher.dispatch('table:create'),
+            { once: true },
+          );
+          view.close();
+        },
+        '표 만들기',
+      );
+      bindings.push({ button: table, command: 'table:create' });
+      view.body.append(table);
       const done = document.createElement('button');
       done.type = 'button';
       done.className = 'workspace-button workspace-primary';
@@ -353,13 +369,6 @@ export function installEditorTools(
     document.getElementById('style-bar')!,
     { subtree: true, attributes: true, childList: true },
   );
-  const narrowScreen = matchMedia('(max-width:900px)');
-  const fitNewDocument = () => {
-    if (narrowScreen.matches && wasm.hasLoadedDocument())
-      requestAnimationFrame(() => dispatcher.dispatch('view:zoom-fit-width'));
-  };
-  bus.on('document-loaded', fitNewDocument);
-  narrowScreen.addEventListener('change', fitNewDocument);
-  fitNewDocument();
+  installWorkspaceZoom(wasm, bus, dispatcher);
   sync();
 }

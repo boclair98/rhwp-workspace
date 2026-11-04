@@ -181,6 +181,7 @@ export class FindDialog {
     findLabel.className = 'find-dialog-label';
     this.queryInput = document.createElement('input');
     this.queryInput.type = 'text';
+    this.queryInput.setAttribute('aria-label', findLabel.textContent!.replace(/:$/, ''));
     this.queryInput.className = 'find-dialog-input';
     this.queryInput.addEventListener('keydown', (e) => e.stopPropagation());
     this.queryInput.addEventListener('keyup', (e) => e.stopPropagation());
@@ -218,6 +219,7 @@ export class FindDialog {
     replaceLabel.className = 'find-dialog-label';
     this.replaceInput = document.createElement('input');
     this.replaceInput.type = 'text';
+    this.replaceInput.setAttribute('aria-label', replaceLabel.textContent!.replace(/:$/, ''));
     this.replaceInput.className = 'find-dialog-input';
     this.replaceInput.addEventListener('keydown', (e) => e.stopPropagation());
     this.replaceInput.addEventListener('keyup', (e) => e.stopPropagation());

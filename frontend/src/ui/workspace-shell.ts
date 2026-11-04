@@ -163,7 +163,12 @@ export function installWorkspaceShell(
       menu.addEventListener('keydown', (e) => {
         if (e.target === menu && (e.key === 'Enter' || e.key === ' ')) {
           e.preventDefault();
-          menu.querySelector<HTMLElement>('.menu-title')?.click();
+          menu
+            .querySelector<HTMLElement>('.menu-title')
+            ?.dispatchEvent(
+              new MouseEvent('mousedown', { bubbles: true, cancelable: true }),
+            );
+          e.stopPropagation();
         }
       });
     });
