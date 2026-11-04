@@ -18,4 +18,7 @@
 
 임시 이름은 **오픈소스 한글**이다. 기존 ‘글결’의 브라우저 저장소와 백업 식별자는 유지한다. 한컴 공식 제품/제휴 서비스가 아닌 RHWP 기반 독립 프로젝트다.
 
-비교 화면: [변경 전 PC](screenshots/v3-before-desktop.jpg), [변경 전 모바일](screenshots/v3-before-mobile.jpg). 수정 후 운영 화면은 배포 검증 뒤 README의 최신 스크린샷으로 확인한다. 실제 기기 키보드·스크린리더 전체 흐름과 복잡한 한컴 문서 호환성은 이 점검의 범위 밖이다.
+비교 화면: [변경 전 PC](screenshots/v3-before-desktop.jpg), [변경 전 모바일](screenshots/v3-before-mobile.jpg). 수정 후 운영 화면은 README의 최신 스크린샷으로 확인한다. 실제 기기 키보드·스크린리더 전체 흐름과 복잡한 한컴 문서 호환성은 이 점검의 범위 밖이다.
+
+
+운영 검증은 새 배포 ready 후 수행했다. [PC 편집](screenshots/production-desktop.jpg) · [360px 편집](screenshots/production-mobile-360.jpg) · [모바일 서식 창](screenshots/production-mobile-format.jpg) · [PC 보관함](screenshots/production-library-desktop.jpg) · [모바일 보관함](screenshots/production-library-mobile.jpg). 새 이름과 기존 문서 입출력·보관·백업 동작을 함께 확인했다. 상세 명령/결과/미검증 범위는 [VERIFICATION.md](VERIFICATION.md)에 남겼다.

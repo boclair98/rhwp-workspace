@@ -2,11 +2,11 @@
 
 RHWP 오픈소스를 바탕으로 만든 독립 HWP/HWPX 문서 편집기입니다. 한컴의 공식 제품이나 제휴 서비스가 아닙니다. 이전 이름 ‘글결’의 문서와 백업을 그대로 읽습니다. 파일을 브라우저에서 열고 수정하여 내려받습니다.
 
-**운영 중 · `ready` (2026-11-05 검증).** [오픈소스 한글 열기](https://rhwp-workspace.coders.kr) — Coders.kr의 최신 배포 규약으로 게시했으며 실제 문서 편집·저장·백업 이전과 모바일/PC 화면을 확인했습니다. 로컬 실행도 계속 지원합니다.
+**v0.3 운영 중 · `ready` (2026-11-05 검증).** [오픈소스 한글 열기](https://rhwp-workspace.coders.kr) — Coders.kr의 최신 배포 규약으로 게시했으며 실제 문서 편집·저장·백업 이전과 모바일/PC 화면을 확인했습니다. 로컬 실행도 계속 지원합니다.
 
 ![운영 오픈소스 한글의 데스크톱 문서 편집 화면](screenshots/production-desktop.jpg)
 
-[내 문서 보관함](screenshots/library-desktop.jpg) · [이전 이력 비교](screenshots/history-migration.jpg) · [모바일 보관함](screenshots/library-mobile.jpg)
+[내 문서 보관함](screenshots/production-library-desktop.jpg) · [모바일 보관함](screenshots/production-library-mobile.jpg) · [모바일 서식 창](screenshots/production-mobile-format.jpg) · [v0.2 이전 이력 비교 기록](screenshots/history-migration.jpg)
 
 운영 검증 화면: [PC 보관함](screenshots/production-library-desktop.jpg) · [모바일 보관함](screenshots/production-library-mobile.jpg) · [360px](screenshots/production-mobile-360.jpg) · [390px](screenshots/production-mobile-390.jpg) · [태블릿](screenshots/production-tablet.jpg). 화면 속 문서는 직접 만든 기능 확인용 문서입니다.
 
@@ -131,7 +131,8 @@ npm start
 - `npm run build`: TypeScript 검사 및 Vite production build.
 - `npm test`: 문서/이력 백업 왕복, 변조 거부, 중복 방지, IndexedDB 실패 시 전체 취소와 v1 저장소 업그레이드 등 11개 통과.
 - 별도 로컬 출처 7720 → 7721에서 문서 2개·이력 1개 이전 후 실제 문서 열기/이력 비교 확인. 7721은 검증용이며 기본 실행 주소는 7720입니다.
-- 운영 주소에서도 빈 보관함 → 문서 2개·이력 1개 가져오기 → 편집·보관 → HWP/HWPX 다운로드·CLI 재검증까지 확인했습니다. 동일 백업의 중복 건너뛰기와 손상 백업 거부, 백업 내보내기 체크섬도 확인했습니다.
+- v0.3 운영에서도 기존 문서 3개·이력 1개 유지, 간편 도구로 문장·14pt/굵게 편집, HWP/HWPX 다운로드와 CLI 재파싱, HWPX 재열기/렌더링을 확인했습니다. 모바일 서식 창과 전체 도구 전환도 확인했습니다.
+- 첫 운영 배포에서는 빈 보관함 → 문서 2개·이력 1개 가져오기 → 편집·보관 → HWP/HWPX 다운로드·CLI 재검증까지 확인했습니다. 동일 백업의 중복 건너뛰기와 손상 백업 거부, 백업 내보내기 체크섬도 확인했습니다.
 - 플랫폼 Docker 빌드 성공과 `ready`, 운영 루트/상태 경로 200, 운영 JS·CSS의 로컬 빌드와 바이트 일치를 확인했습니다.
 - 브라우저에서 HWPX 열기 → 문장 추가 → 저장 후 CLI 재파싱에서 추가 문장과 표 보존 확인.
 - 360×800, 390×844, 768×1024, 1440×900에서 화면, 페이지 넘침과 주요 조작 확인.
