@@ -59,6 +59,30 @@
 .workspace-ai-caption { font-size: 14px; color: var(--ui-text-secondary); }
 .workspace-ai-body p:empty:not([data-ai-feedback]) { display: none; }
 .workspace-ai-feedback:empty { margin: 0; }
+.workspace-writing-steps { display: flex; list-style: none; padding: 8px 0 12px; margin: 0; gap: 8px; border-bottom: 1px solid var(--ui-border); }
+.workspace-writing-steps li { flex: 1; min-width: 0; font-size: 14px; font-weight: 500; color: var(--ui-text-secondary); padding: 7px 4px; text-align: center; border-radius: 8px; }
+.workspace-writing-steps li[aria-current] { background: var(--ui-accent-bg); color: var(--ui-link); font-weight: 700; }
+.workspace-draft-actions { display: flex; gap: 8px; margin-top: 12px; }
+.workspace-draft-tools { margin-bottom: 8px; }
+.workspace-draft-tools summary { min-height: 44px; align-content: center; cursor: pointer; font-size: 14px; font-weight: 600; color: var(--ui-text-secondary); }
+.workspace-draft-actions .workspace-button { min-height: 44px; flex: 1; font-size: 14px; }
+#workspace-ai-panel [data-draft-status] { font-size: 13px; margin: 7px 0 16px; }
+.workspace-draft-confirm { border: 1px solid var(--ui-border); border-radius: 12px; padding: 12px; background: var(--ui-surface-muted); }
+.workspace-draft-confirm .workspace-button { min-height: 44px; margin-right: 8px; }
+.workspace-resume { width: 100%; min-height: 44px; margin-top: 12px; color: var(--ui-link); }
+#workspace-ai-panel .workspace-ai-preview { border: 0; padding: 0; }
+#workspace-ai-panel .workspace-review-label { margin: 16px 0 8px; font-size: 16px; }
+#workspace-ai-panel #workspace-review-text { min-height: 240px; max-height: 420px; line-height: 1.85; padding: 16px; background: var(--ui-surface); box-shadow: 0 2px 8px #191f2806; }
+#workspace-ai-panel #workspace-review-text[aria-invalid="true"] { border-color: var(--ui-danger); }
+.workspace-ai-preview details { border-top: 1px solid var(--ui-border); margin-top: 16px; }
+.workspace-ai-preview summary { min-height: 44px; align-content: center; cursor: pointer; font-size: 15px; font-weight: 600; }
+.workspace-review-location { padding: 12px; border-radius: 12px; background: var(--ui-surface-muted); margin-top: 16px; }
+.workspace-review-location p { font-size: 14px; }
+.workspace-review-location .workspace-button { width: 100%; min-height: 44px; }
+.workspace-writing-done { text-align: center; padding: 32px 8px; }
+.workspace-writing-done > span { display: grid; place-items: center; width: 56px; height: 56px; border-radius: 50%; background: var(--ui-accent-bg); color: var(--ui-link); font-size: 27px; margin: 0 auto 20px; }
+.workspace-ai-body .workspace-writing-done h3 { font-size: 23px; }
+.workspace-writing-done p { color: var(--ui-text-secondary); }
 .workspace-ai-connection { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 .workspace-ai-connection span {
   display: inline-flex;

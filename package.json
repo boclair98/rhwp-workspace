@@ -1,6 +1,6 @@
 {
   "name": "rhwp-workspace",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "private": true,
   "type": "module",
   "license": "MIT",
@@ -10,7 +10,7 @@
     "build": "npm run typecheck && vite build --config frontend/vite.config.mjs",
     "preview": "vite preview --config frontend/vite.config.mjs --host 127.0.0.1 --port 7720",
     "start": "node --env-file-if-exists=.env.local server.mjs",
-    "test": "node --experimental-strip-types --test tests/library.test.ts tests/responsive-zoom.test.ts tests/ai-edit.test.ts tests/ai-editor.test.ts tests/ai-service.test.mjs tests/writing-templates.test.ts"
+    "test": "node --experimental-strip-types --test tests/library.test.ts tests/responsive-zoom.test.ts tests/ai-edit.test.ts tests/ai-editor.test.ts tests/ai-service.test.mjs tests/writing-templates.test.ts tests/writing-draft-store.test.ts"
   },
   "dependencies": {
     "@noble/hashes": "2.4.0",

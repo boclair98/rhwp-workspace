@@ -291,7 +291,7 @@ const commandServices: CommandServices = {
 
 const dispatcher = new CommandDispatcher(registry, commandServices, eventBus);
 installWorkspaceShell(wasm, eventBus, dispatcher, documentState);
-installWorkspaceAi(wasm, eventBus, () => inputHandler);
+installWorkspaceAi(wasm, eventBus, () => inputHandler, dispatcher);
 installDocumentLibrary(wasm, eventBus, documentState, dispatcher, async (document) => {
   if (!await canReplaceCurrentDocument()) return false;
   try {

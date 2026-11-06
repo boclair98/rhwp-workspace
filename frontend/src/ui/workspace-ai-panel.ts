@@ -7,10 +7,13 @@ import { readAiConnection, makeAiWriting, type AiConnection } from '../workspace
 import { WRITING_TEMPLATES, renderWritingTemplate, type WritingTemplateId } from '../workspace/writing-templates';
 import { workspaceDialog } from './workspace-dialog';
 import { showToast } from './toast';
+import type { CommandDispatcher } from '../command/dispatcher';
+import { saveWritingDraft, loadWritingDraft, type WritingDraft } from '../workspace/writing-draft-store';
 
 const panelTitle = '한글 글쓰기 도우미';
+type Proposal = { text: string; source: 'manual' | 'ai' | 'template'; explanation?: string };
 
-export function installWorkspaceAi(wasm: WasmBridge, bus: EventBus, getInput: () => InputHandler | null): void {
+export function installWorkspaceAi(wasm: WasmBridge, bus: EventBus, getInput: () => InputHandler | null, dispatcher: CommandDispatcher): void {
   const root = document.getElementById('studio-root')!;
   const editor = new AiEditor(wasm, getInput);
   const narrow = matchMedia('(max-width:1100px)');
@@ -33,6 +36,12 @@ export function installWorkspaceAi(wasm: WasmBridge, bus: EventBus, getInput: ()
     </header>
     <div class="workspace-ai-body">
       <div class="workspace-ai-connection"><span data-ai-connection role="status">양식으로 바로 쓸 수 있어요</span><button type="button" data-ai-size aria-pressed="false">글자 크게</button></div>
+      <ol class="workspace-writing-steps" aria-label="글쓰기 순서"><li data-writing-step="compose">1 작성</li><li data-writing-step="review">2 글 확인</li><li data-writing-step="done">3 문서 반영</li></ol>
+      <details class="workspace-draft-tools"><summary>초안 보관·불러오기</summary><div class="workspace-draft-actions"><button type="button" class="workspace-button" data-draft-save>초안 보관</button><button type="button" class="workspace-button" data-draft-load>보관한 초안</button></div>
+      <p class="workspace-ai-caption" data-draft-status>직접 보관한 초안 1개를 이 브라우저에 남겨요.</p>
+      </details>
+      <section class="workspace-draft-confirm" data-draft-confirm hidden aria-label="초안 불러오기 확인"><p>지금 작성 중인 내용을 보관한 초안으로 바꿀까요? 문서 내용은 그대로예요.</p><button type="button" class="workspace-button" data-draft-accept>불러오기</button><button type="button" class="workspace-button" data-draft-cancel>취소</button></section>
+      <div data-ai-compose>
       <button type="button" data-ai-settings-toggle aria-expanded="false" aria-controls="workspace-ai-settings" hidden>AI 연결 설정</button>
       <section class="workspace-ai-settings" id="workspace-ai-settings" data-ai-settings hidden aria-label="AI 연결 설정">
         <h3>로컬 API 연결</h3><p>API 키는 이 컴퓨터의 서버에서 관리해요. 아래 값을 프로젝트의 <code>.env.local</code>에 설정하고 서버를 다시 실행해 주세요.</p>
@@ -79,18 +88,26 @@ export function installWorkspaceAi(wasm: WasmBridge, bus: EventBus, getInput: ()
         <p class="workspace-ai-caption" data-ai-api-hint>AI 연결 상태를 확인하고 있어요.</p>
       </section>
       <details class="workspace-ai-manual"><summary>직접 쓴 글 넣기</summary><label for="workspace-ai-manual-text" data-ai-manual-label>넣을 글</label><textarea id="workspace-ai-manual-text" rows="3"></textarea><button type="button" class="workspace-button" data-ai-preview>미리보기</button></details>
+      <button type="button" class="workspace-button workspace-resume" data-review-resume hidden>이전에 만든 글 계속 보기</button>
+      </div>
       <section class="workspace-ai-preview" data-ai-preview-section hidden aria-label="글 미리보기" tabindex="-1">
         <div class="workspace-ai-label-row"><h3>글 미리보기</h3><span data-ai-source></span></div>
-        <div data-ai-original><h4>원래 문장</h4><p data-ai-before></p></div>
-        <h4 data-ai-result-label>문서에 넣을 글</h4><p data-ai-after></p><p class="workspace-ai-caption" data-ai-explanation></p>
+        <p class="workspace-ai-caption">고치고 싶은 부분은 여기서 바로 바꿔 주세요.</p>
+        <label for="workspace-review-text" class="workspace-review-label">문서에 넣을 글</label><textarea id="workspace-review-text" rows="9" aria-describedby="workspace-review-count workspace-review-error"></textarea>
+        <p class="workspace-ai-caption" id="workspace-review-count"></p><p id="workspace-review-error" class="workspace-ai-feedback is-error" role="status"></p>
+        <details data-ai-original><summary>원문과 비교</summary><h4>원래 문장</h4><p data-ai-before></p><h4 data-ai-result-label>다듬은 문장</h4><p data-ai-after></p></details>
+        <p class="workspace-ai-caption" data-ai-explanation></p>
+        <div class="workspace-review-location" data-review-location><p>글은 남아 있어요. 넣을 위치를 확인해 주세요.</p><button type="button" class="workspace-button" data-review-rebind>현재 위치 다시 확인</button></div>
       </section>
+      <section class="workspace-writing-done" data-writing-done hidden tabindex="-1" aria-label="문서 반영 완료"><span aria-hidden="true">✓</span><h3>문서에 넣었어요</h3><p>문서에서 서식을 더 다듬거나,<br>한글 파일로 저장할 수 있어요.</p><p class="workspace-ai-caption">되돌리기는 Ctrl+Z 또는 상단 화살표를 눌러 주세요.</p></section>
       <p class="workspace-ai-feedback" role="status" aria-live="polite" tabindex="-1" data-ai-feedback></p>
     </div>
     <footer class="workspace-ai-footer"><p data-ai-footer-hint>만든 글은 미리보기에서 확인할 수 있어요.</p><div>
-      <button type="button" class="workspace-button" data-ai-discard hidden>내용 고치기</button>
+      <button type="button" class="workspace-button" data-ai-discard hidden>작성으로</button>
       <button type="button" class="workspace-button" data-ai-cancel hidden>취소</button>
       <button type="button" class="workspace-button workspace-primary" data-ai-generate disabled>초안 만들기</button>
       <button type="button" class="workspace-button workspace-primary" data-ai-apply hidden disabled>문서에 넣기</button>
+      <button type="button" class="workspace-button" data-writing-continue hidden>계속 작성</button><button type="button" class="workspace-button workspace-primary" data-writing-download hidden>파일 저장</button>
     </div></footer>`;
   root.append(panel);
   const find = <T extends HTMLElement = HTMLElement>(selector: string) => panel.querySelector<T>(selector)!;
@@ -107,16 +124,24 @@ export function installWorkspaceAi(wasm: WasmBridge, bus: EventBus, getInput: ()
   const footerHint = find('[data-ai-footer-hint]');
   const consent = find<HTMLInputElement>('[data-ai-consent]');
   const manualPreview = find<HTMLButtonElement>('[data-ai-preview]');
+  const reviewText = find<HTMLTextAreaElement>('#workspace-review-text');
+  const continueWriting = find<HTMLButtonElement>('[data-writing-continue]');
+  const download = find<HTMLButtonElement>('[data-writing-download]');
   const modeButtons = [...panel.querySelectorAll<HTMLButtonElement>('[data-ai-mode]')];
   const templateForm = find<HTMLFormElement>('[data-template-form]');
   const methodButtons = [...panel.querySelectorAll<HTMLButtonElement>('[data-writing-method]')];
   const templateValues: Partial<Record<WritingTemplateId, Record<string, string>>> = {};
   let templateId: WritingTemplateId = 'notice';
   let method: 'template' | 'ai' = 'template';
-  const inputs = { draft: { prompt: '', manual: '' }, rewrite: { prompt: '', manual: '' } };
+  const inputs: Record<'draft' | 'rewrite', { prompt: string; manual: string; preview?: Proposal }> = { draft: { prompt: '', manual: '' }, rewrite: { prompt: '', manual: '' } };
   let mode: keyof typeof inputs = 'draft';
   let target: AiEditTarget | null = null;
-  let proposal: { text: string; source: 'manual' | 'ai' | 'template' } | null = null;
+  let proposal: Proposal | null = null;
+  let stage: 'compose' | 'review' | 'done' = 'compose';
+  let reviewTarget: AiEditTarget | null = null;
+  let reviewError = '';
+  let loading = false;
+  let savedDraft: WritingDraft | null = null;
   let stale = false;
   let applying = false;
   let request: AbortController | null = null;
@@ -138,14 +163,26 @@ export function installWorkspaceAi(wasm: WasmBridge, bus: EventBus, getInput: ()
     const draft = mode === 'draft';
     const template = draft && method === 'template';
     const direct = !draft && !connection?.configured;
-    generate.disabled = !target || stale || !!request || (!template && (direct ? !manual.value.trim() : !connection?.configured || !prompt.value.trim() || !consent.checked));
+    generate.disabled = stage !== 'compose' || loading || !target || stale || !!request || (!template && (direct ? !manual.value.trim() : !connection?.configured || !prompt.value.trim() || !consent.checked));
     generate.textContent = request ? '글을 쓰고 있어요…' : template ? '글 미리보기' : direct ? '다듬은 글 미리보기' : draft ? 'AI로 초안 만들기' : 'AI로 다듬기';
-    generate.hidden = !!proposal;
+    generate.hidden = stage !== 'compose';
     cancel.hidden = !request;
-    apply.hidden = !proposal;
-    apply.disabled = !proposal || !target || stale || !!request;
-    discard.hidden = !proposal;
-    footerHint.textContent = !target || stale ? targetHint() : proposal ? '읽어 보고 마음에 들면 문서에 넣어 주세요.' : '만든 글은 미리보기에서 확인할 수 있어요.';
+    apply.hidden = stage !== 'review';
+    apply.disabled = loading || !proposal || !reviewTarget || !!reviewError || !!request;
+    discard.hidden = stage !== 'review';
+    continueWriting.hidden = download.hidden = stage !== 'done';
+    download.disabled = loading;
+    footerHint.textContent = stage === 'done' ? '현재 문서를 한글 파일로 저장해요.' : stage === 'review' ? reviewError || (!reviewTarget ? '문서의 위치를 다시 확인해 주세요.' : '확인한 글만 문서에 반영해요.') : !target || stale ? targetHint() : '만든 글은 다음 화면에서 고칠 수 있어요.';
+    find('[data-ai-compose]').hidden = stage !== 'compose';
+    preview.hidden = stage !== 'review';
+    find('[data-writing-done]').hidden = stage !== 'done';
+    find('[data-review-resume]').hidden = !proposal;
+    find('[data-review-location]').hidden = !!reviewTarget;
+    find('[data-ai-original]').hidden = mode === 'draft' || !reviewTarget;
+    find('[data-review-rebind]').textContent = target && !stale ? '현재 위치 다시 확인' : '문서에서 위치 고르기';
+    for (const step of panel.querySelectorAll<HTMLElement>('[data-writing-step]')) {
+      if (step.dataset.writingStep === stage) step.setAttribute('aria-current', 'step'); else step.removeAttribute('aria-current');
+    }
     manualPreview.disabled = !target || stale || !!request || !manual.value.trim();
     manualPreview.hidden = direct;
     find('#workspace-ai-prompt-count').textContent = `${prompt.value.length.toLocaleString()} / 1,000`;
@@ -154,7 +191,8 @@ export function installWorkspaceAi(wasm: WasmBridge, bus: EventBus, getInput: ()
     trigger.classList.toggle('active', open);
     panel.setAttribute('aria-busy', String(!!request));
   };
-  const clearProposal = () => { proposal = null; preview.hidden = true; sync(); };
+  const clearProposal = () => { proposal = null; reviewTarget = null; reviewError = ''; stage = 'compose'; sync(); };
+  const detachReview = () => { reviewTarget = null; sync(); };
   const cancelRequest = () => { abort(); sync(); };
   const targetHint = () => mode === 'draft' ? '문서에서 글을 넣을 곳을 한 번 눌러 주세요.' : '문서에서 다듬을 문장을 선택해 주세요.';
   const showTarget = () => {
@@ -186,42 +224,53 @@ export function installWorkspaceAi(wasm: WasmBridge, bus: EventBus, getInput: ()
     showTarget(); sync();
   };
   const capture = (force = false) => {
+    if (loading) return;
     try {
       const next = mode === 'draft' ? editor.captureDraft() : editor.capture();
       if (target && !stale && target.generation === next.generation && target.revision === next.revision
         && JSON.stringify(target.start) === JSON.stringify(next.start) && JSON.stringify(target.end) === JSON.stringify(next.end)) return;
       abort(); target = next; stale = false; consent.checked = false;
-      clearProposal(); showTarget(); say('');
+      detachReview(); showTarget();
     } catch (error) {
       abort(); target = null; stale = false; consent.checked = false;
-      clearProposal(); showTarget();
+      detachReview(); showTarget();
       if (force) say((error as Error).message, true);
     }
     sync();
   };
-  const showPreview = (text: string, source: 'manual' | 'ai' | 'template', explanation = '') => {
-    if (!target || stale) throw new Error(targetHint());
-    editor.assertCurrent(target);
-    const draft = mode === 'draft';
-    text = draft ? validateDraft(text) : validateRevision(target.text, text);
-    const before = find('[data-ai-before]'), after = find('[data-ai-after]');
-    find('[data-ai-original]').hidden = draft;
-    if (draft) {
-      after.textContent = text;
-    } else {
-      const diff = revisionDifference(target.text, text);
+  const refreshReviewText = () => {
+    if (!proposal) return;
+    find('[data-ai-result-label]').textContent = mode === 'draft' ? '문서에 넣을 글' : '다듬은 문장';
+    find('[data-ai-source]').textContent = proposal.source === 'ai' ? 'AI에서 시작' : proposal.source === 'template' ? '양식에서 시작' : '직접 작성';
+    find('[data-ai-explanation]').textContent = reviewTarget ? proposal.explanation ?? '' : '';
+    proposal.text = reviewText.value;
+    try {
+      if (mode === 'draft') validateDraft(proposal.text);
+      else validateRevision(reviewTarget?.text ?? '', proposal.text);
+      reviewError = '';
+    } catch (error) { reviewError = (error as Error).message; }
+    reviewText.setAttribute('aria-invalid', String(!!reviewError));
+    find('#workspace-review-error').textContent = reviewError;
+    find('#workspace-review-count').textContent = `${codePointLength(proposal.text).toLocaleString()} / 2,000자${mode === 'draft' ? ` · ${proposal.text.split('\n').length} / 16줄` : ''}`;
+    find('[data-ai-original]').hidden = mode === 'draft' || !reviewTarget;
+    if (mode === 'rewrite' && reviewTarget) {
+      const diff = revisionDifference(reviewTarget.text, proposal.text);
       const removed = document.createElement('del'); removed.textContent = diff.removed;
       const added = document.createElement('mark'); added.textContent = diff.added;
-      before.replaceChildren(document.createTextNode(diff.prefix), removed, document.createTextNode(diff.suffix));
-      after.replaceChildren(document.createTextNode(diff.prefix), added, document.createTextNode(diff.suffix));
+      find('[data-ai-before]').replaceChildren(document.createTextNode(diff.prefix), removed, document.createTextNode(diff.suffix));
+      find('[data-ai-after]').replaceChildren(document.createTextNode(diff.prefix), added, document.createTextNode(diff.suffix));
     }
-    find('[data-ai-result-label]').textContent = draft ? '문서에 넣을 글' : '다듬은 문장';
-    find('[data-ai-source]').textContent = source === 'ai' ? 'AI가 쓴 글' : source === 'template' ? '양식으로 만든 글' : '직접 입력';
-    find('[data-ai-explanation]').textContent = explanation;
-    proposal = { text, source };
-    preview.hidden = false;
-    say('');
     sync();
+  };
+  const showPreview = (text: string, source: 'manual' | 'ai' | 'template', explanation = '', bind = true) => {
+    if (bind && (!target || stale || loading)) throw new Error(targetHint());
+    if (bind) editor.assertCurrentPosition(target!, mode);
+    const draft = mode === 'draft';
+    text = draft ? validateDraft(text) : validateRevision(bind ? target!.text : '', text);
+    proposal = { text, source, explanation };
+    reviewText.value = text; reviewTarget = bind ? target : null; stage = 'review';
+    say('');
+    refreshReviewText();
     preview.focus({ preventScroll: true });
     preview.scrollIntoView({ block: 'nearest', behavior: 'instant' });
   };
@@ -265,7 +314,7 @@ export function installWorkspaceAi(wasm: WasmBridge, bus: EventBus, getInput: ()
       input.maxLength = field.maxLength; input.placeholder = field.placeholder; input.value = values[field.id] ?? '';
       if (input instanceof HTMLTextAreaElement) input.rows = 3;
       input.addEventListener('invalid', () => { if (input.validity.valueMissing) input.setCustomValidity(`${field.label}: 내용을 입력해 주세요.`); });
-      input.addEventListener('input', () => { input.setCustomValidity(''); values[field.id] = input.value; if (proposal?.source === 'template') clearProposal(); say(''); });
+      input.addEventListener('input', () => { input.setCustomValidity(''); values[field.id] = input.value; if (proposal?.source === 'template') detachReview(); say(''); });
       wrap.append(label, input); (field.required ? templateForm : optional).append(wrap);
     }
     if (optional.children.length > 1) templateForm.append(optional);
@@ -274,7 +323,7 @@ export function installWorkspaceAi(wasm: WasmBridge, bus: EventBus, getInput: ()
   for (const template of WRITING_TEMPLATES) {
     const button = document.createElement('button'); button.type = 'button'; button.dataset.templateId = template.id;
     button.textContent = template.label;
-    button.addEventListener('click', () => { templateId = template.id; clearProposal(); say(''); renderTemplateFields(); });
+    button.addEventListener('click', () => { if (templateId === template.id) return; templateId = template.id; detachReview(); say(''); renderTemplateFields(); });
     find('[data-template-choices]').append(button);
   }
   templateForm.addEventListener('submit', event => { event.preventDefault(); generate.click(); });
@@ -322,46 +371,97 @@ export function installWorkspaceAi(wasm: WasmBridge, bus: EventBus, getInput: ()
   });
   find('[data-ai-refresh]').addEventListener('click', () => void refreshConnection());
   find('[data-ai-capture]').addEventListener('click', () => capture(true));
+  reviewText.addEventListener('input', () => { abort(); refreshReviewText(); });
+  find('[data-review-rebind]').addEventListener('click', () => {
+    if (!target || stale) { close(); getInput()?.focus(); return; }
+    try {
+      const pending = proposal!;
+      capture(true);
+      showPreview(pending.text, pending.source, '현재 위치를 확인했어요. 글을 읽고 반영해 주세요.');
+    } catch (error) { detachReview(); say((error as Error).message, true); }
+  });
+  find('[data-review-resume]').addEventListener('click', () => {
+    if (proposal) {
+      abort();
+      stage = 'review'; refreshReviewText(); preview.focus();
+    }
+  });
+  find('[data-draft-save]').addEventListener('click', () => {
+    try {
+      saveWritingDraft({ mode, method, templateId, templateValues, prompt: prompt.value, manual: manual.value,
+        ...(proposal ? { preview: { text: proposal.text, source: proposal.source } } : {}) });
+      find('[data-draft-status]').textContent = '초안을 이 브라우저에 보관했어요. 문서 파일 저장은 별도예요.';
+      say('초안을 보관했어요. 다음에 ‘보관한 초안’에서 이어 쓸 수 있어요.');
+    } catch (error) { say((error as Error).message, true); }
+  });
+  find('[data-draft-load]').addEventListener('click', () => {
+    try {
+      savedDraft = loadWritingDraft();
+      if (!savedDraft) { say('아직 보관한 초안이 없어요. 먼저 초안 보관을 눌러 주세요.'); return; }
+      find('[data-draft-confirm]').hidden = false;
+      find('[data-draft-accept]').focus();
+    } catch (error) { say((error as Error).message, true); }
+  });
+  find('[data-draft-cancel]').addEventListener('click', () => {
+    savedDraft = null; find('[data-draft-confirm]').hidden = true; find('[data-draft-load]').focus();
+  });
+  find('[data-draft-accept]').addEventListener('click', () => {
+    if (!savedDraft) return;
+    const restored = savedDraft; savedDraft = null; abort();
+    mode = restored.mode; method = restored.method; templateId = restored.templateId;
+    for (const key of Object.keys(templateValues)) delete templateValues[key as WritingTemplateId];
+    Object.assign(templateValues, restored.templateValues);
+    prompt.value = restored.prompt; manual.value = restored.manual;
+    inputs[mode] = { prompt: restored.prompt, manual: restored.manual, preview: restored.preview };
+    consent.checked = false; target = null; stale = false; clearProposal();
+    find('[data-draft-confirm]').hidden = true; renderTemplateFields(); showMode(); capture();
+    if (restored.preview) showPreview(restored.preview.text, restored.preview.source, '보관한 초안이에요. 현재 문서의 위치를 확인한 뒤 넣어 주세요.', false);
+    else templateForm.querySelector<HTMLInputElement>('input')?.focus();
+    say('초안을 불러왔어요. 문서 내용은 바뀌지 않았어요.');
+  });
   for (const button of methodButtons) button.addEventListener('click', () => {
-    abort(); method = button.dataset.writingMethod as typeof method; clearProposal(); say(''); showMode();
+    abort(); method = button.dataset.writingMethod as typeof method; detachReview(); say(''); showMode();
   });
   for (const button of modeButtons) button.addEventListener('click', () => {
     const next = button.dataset.aiMode as keyof typeof inputs;
     if (next === mode) return;
-    inputs[mode] = { prompt: prompt.value, manual: manual.value };
+    inputs[mode] = { prompt: prompt.value, manual: manual.value, ...(proposal ? { preview: { ...proposal } } : {}) };
     abort(); mode = next; target = null; stale = false; consent.checked = false;
     prompt.value = inputs[mode].prompt;
     manual.value = inputs[mode].manual;
-    clearProposal(); say(''); showMode(); capture();
+    clearProposal();
+    const previous = inputs[mode].preview;
+    if (previous) { proposal = { ...previous }; reviewText.value = previous.text; }
+    say(''); showMode(); capture();
   });
   for (const button of panel.querySelectorAll<HTMLButtonElement>('[data-ai-prompt]')) button.addEventListener('click', () => {
     prompt.value = button.dataset.aiPrompt!; prompt.dispatchEvent(new Event('input')); prompt.focus();
   });
   prompt.addEventListener('input', () => {
     if (request) { cancelRequest(); say('요청이 바뀌어 이전 생성을 취소했어요.'); }
-    if (proposal?.source === 'ai') { clearProposal(); say('요청이 바뀌었어요. 수정안을 다시 만들어 주세요.'); }
+    if (proposal?.source === 'ai') { detachReview(); say('이전에 만든 글은 남아 있어요. 새 요청으로 만들 수도 있어요.'); }
     sync();
   });
   consent.addEventListener('change', () => { if (!consent.checked && request) cancelRequest(); sync(); });
-  manual.addEventListener('input', () => { if (proposal?.source === 'manual') clearProposal(); sync(); });
+  manual.addEventListener('input', () => { if (proposal?.source === 'manual') detachReview(); sync(); });
   find('[data-ai-preview]').addEventListener('click', () => {
-    try { showPreview(manual.value, 'manual'); } catch (error) { clearProposal(); say((error as Error).message, true); }
+    try { showPreview(manual.value, 'manual'); } catch (error) { say((error as Error).message, true); }
   });
   generate.addEventListener('click', async () => {
-    if (!target || generate.disabled) return;
+    if (stage !== 'compose' || !target || generate.disabled) return;
     if (mode === 'draft' && method === 'template') {
       if (!templateForm.reportValidity()) return;
       try { showPreview(renderWritingTemplate(templateId, templateValues[templateId] ?? {}), 'template', '날짜, 이름, 내용을 확인한 뒤 문서에 넣어 주세요.'); }
-      catch (error) { clearProposal(); say((error as Error).message, true); }
+      catch (error) { say((error as Error).message, true); }
       return;
     }
     if (mode === 'rewrite' && !connection?.configured) {
       try { showPreview(manual.value, 'manual'); }
-      catch (error) { clearProposal(); say((error as Error).message, true); }
+      catch (error) { say((error as Error).message, true); }
       return;
     }
-    try { editor.assertCurrent(target); } catch (error) { stale = true; say((error as Error).message, true); sync(); return; }
-    clearProposal();
+    try { editor.assertCurrentPosition(target, mode); } catch (error) { stale = true; say((error as Error).message, true); sync(); return; }
+    detachReview();
     const controller = new AbortController(); request = controller;
     const captured = target, originalPrompt = prompt.value;
     say('글을 준비하고 있어요. 잠시만 기다려 주세요.'); sync();
@@ -377,49 +477,60 @@ export function installWorkspaceAi(wasm: WasmBridge, bus: EventBus, getInput: ()
   cancel.addEventListener('click', () => { cancelRequest(); say('요청을 취소했어요. 문장은 그대로예요.'); });
   discard.addEventListener('click', () => {
     const field = proposal?.source === 'manual' ? manual : proposal?.source === 'template' ? templateForm.querySelector<HTMLInputElement>('input')! : prompt;
-    clearProposal(); say(''); field.focus();
+    stage = 'compose'; sync(); say('만든 글은 ‘이전에 만든 글 계속 보기’에 남아 있어요.'); field.focus();
   });
   apply.addEventListener('click', () => {
-    if (!target || !proposal || apply.disabled) return;
+    if (!reviewTarget || !proposal || apply.disabled) return;
     try {
+      editor.assertCurrentPosition(reviewTarget, mode);
       applying = true;
-      if (mode === 'draft') editor.applyDraft(target, proposal.text);
-      else editor.apply(target, proposal.text);
+      if (mode === 'draft') editor.applyDraft(reviewTarget, proposal.text);
+      else editor.apply(reviewTarget, proposal.text);
       target = null; stale = false; consent.checked = false; manual.value = '';
-      clearProposal(); showTarget(); say('문서에 넣었어요. 되돌리려면 Ctrl+Z를 누르세요.');
+      reviewTarget = null; stage = 'done'; sync(); showTarget(); say('');
       showToast({ message: '문서에 넣었어요.' });
-      if (sheet) close();
-      else getInput()?.focus();
-    } catch (error) { stale = true; clearProposal(); say((error as Error).message, true); }
+      find('[data-writing-done]').focus();
+    } catch (error) { stale = true; detachReview(); say((error as Error).message, true); }
     finally { applying = false; sync(); }
+  });
+  continueWriting.addEventListener('click', () => { clearProposal(); say(''); capture(); if (sheet) close(); else getInput()?.focus(); });
+  download.addEventListener('click', () => {
+    const save = () => { if (!dispatcher.dispatch('file:save')) showToast({ message: '문서가 준비된 뒤 상단 파일 저장을 눌러 주세요.' }); };
+    if (sheet) { sheet.dialog.addEventListener('close', () => requestAnimationFrame(save), { once: true }); close(); }
+    else save();
   });
   panel.addEventListener('keydown', event => {
     if (!event.isComposing) {
       if (event.key === 'Escape' && !sheet) { event.preventDefault(); close(); }
-      if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') { event.preventDefault(); generate.click(); }
+      if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') { event.preventDefault(); if (stage === 'compose') generate.click(); }
     }
     if (!sheet) event.stopPropagation();
   });
   bus.on('document-changed', () => {
     editor.revision++;
     if (applying) return;
+    if (stage === 'done') stage = 'compose';
     cancelRequest();
     if (target) {
-      const reviewing = !!proposal;
+      const reviewing = stage === 'review';
       target = null; stale = true; consent.checked = false;
-      clearProposal(); showTarget();
-      if (reviewing) say('문서가 바뀌었어요. 위치를 다시 고른 뒤 글을 만들어 주세요.', true);
+      detachReview(); showTarget();
+      if (reviewing) say('문서가 바뀌었지만 작성한 글은 남아 있어요. 넣을 위치를 다시 확인해 주세요.');
     }
   });
   bus.on('document-loading', busy => {
+    loading = busy === true;
+    sync();
     if (busy !== true) return;
-    cancelRequest(); target = null; clearProposal(); stale = false;
+    cancelRequest(); target = null; detachReview(); stale = false;
+    if (stage === 'done') stage = 'compose';
     find('[data-ai-selected]').textContent = '문서를 여는 중이에요. 준비가 끝나면 문장을 선택해 주세요.';
     if (sheet) close();
   });
   bus.on('document-loaded', () => {
-    target = null; stale = false; clearProposal();
-    consent.checked = false; showTarget(); say('');
+    loading = false; target = null; stale = false; detachReview();
+    consent.checked = false; showTarget();
+    if (proposal) say('새 문서에 넣을 위치를 확인해 주세요. 작성한 글은 유지했어요.'); else say('');
     queueMicrotask(() => capture());
   });
   // Canvas text is selected by RHWP, not by the browser's DOM Selection API.

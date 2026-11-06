@@ -91,6 +91,7 @@ test('실제 HWP 엔진: 한 표 셀만 수정하고 다른 셀과 표 구조를
   const h = harness(doc, { start: pos, end: { ...pos, charOffset: 6 } });
   try {
     const target = h.editor.capture(); assert.equal(target.text, '첫 칸 문장');
+    h.editor.assertCurrentPosition(target, 'rewrite');
     h.editor.apply(target, '표 안의 수정 문장');
     assert.equal(doc.getTextInCellByPath(0, 0, path, 0, 500), '표 안의 수정 문장');
     assert.equal(doc.getTextInCellByPath(0, 0, other, 0, 500), '두 번째 칸 보존');
@@ -112,5 +113,53 @@ test('실제 엔진: 대상 문단이 이동하거나 다른 편집이 생기면
     h.editor.revision--; h.w.documentGeneration++;
     assert.throws(() => h.editor.apply(target, '수정 문장'));
     assert.equal(doc.getTextRange(0, 0, 0, 500), '원래 문장');
+  } finally { h.release(); }
+});
+
+test('초안은 같은 캐럿 위치에서만 적용할 수 있다', () => {
+  const doc = HwpDocument.createEmpty();
+  doc.createBlankDocument();
+  doc.insertText(0, 0, 0, '원래 문장');
+  const h = harness(doc, null);
+  try {
+    const target = h.editor.captureDraft();
+    h.input.getCursorPosition = () => ({ ...p(0), cursorRect: { pageIndex: 0, x: 12, y: 24, height: 20 } });
+    assert.doesNotThrow(() => h.editor.assertCurrentPosition(target, 'draft'));
+    h.input.getCursorPosition = () => p(1);
+    assert.throws(() => h.editor.assertCurrentPosition(target, 'draft'), /위치나 선택이 바뀌었어요/);
+    assert.equal(doc.getTextRange(0, 0, 0, 100), '원래 문장');
+  } finally { h.release(); }
+});
+
+test('문장 내용이 같아도 선택 범위가 바뀌면 거부한다', () => {
+  const doc = HwpDocument.createEmpty();
+  doc.createBlankDocument();
+  doc.insertText(0, 0, 0, '같은 문장 같은 문장');
+  const h = harness(doc, { start: p(0), end: p(5) });
+  try {
+    const target = h.editor.capture();
+    assert.doesNotThrow(() => h.editor.assertCurrentPosition(target, 'rewrite'));
+    h.input.getSelection = () => ({ start: p(6), end: p(11) });
+    assert.equal(h.editor.capture().text, target.text);
+    assert.throws(() => h.editor.assertCurrentPosition(target, 'rewrite'), /위치나 선택이 바뀌었어요/);
+    assert.equal(doc.getTextRange(0, 0, 0, 100), '같은 문장 같은 문장');
+  } finally { h.release(); }
+});
+
+test('본문과 캐럿이 같아도 새로 연 문서에 이전 위치를 적용할 수 없다', () => {
+  const original = HwpDocument.createEmpty();
+  original.createBlankDocument();
+  original.insertText(0, 0, 0, '원래 문장');
+  const h = harness(original, null);
+  try {
+    const target = h.editor.captureDraft();
+    const reopened = new HwpDocument(original.exportHwp());
+    const current = harness(reopened, null);
+    try {
+      current.w.documentGeneration = h.w.documentGeneration + 1;
+      assert.deepEqual(current.editor.captureDraft(), { ...target, generation: current.w.documentGeneration });
+      assert.throws(() => current.editor.assertCurrentPosition(target, 'draft'), /문서가 바뀌었어요/);
+      assert.equal(reopened.getTextRange(0, 0, 0, 100), '원래 문장');
+    } finally { current.release(); }
   } finally { h.release(); }
 });

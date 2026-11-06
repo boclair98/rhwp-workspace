@@ -4,8 +4,26 @@ import type { DocumentPosition } from '../core/types';
 import { createAiTarget, validateAiTarget, validateDraft, validateRevision, codePointLength, type AiEditTarget } from './ai-edit.ts';
 
 const cell = (pos: DocumentPosition) => pos.parentParaIndex !== undefined;
+function cellPath(pos: DocumentPosition) {
+  return pos.cellPath?.length ? pos.cellPath : [{ controlIndex: pos.controlIndex, cellIndex: pos.cellIndex, cellParaIndex: pos.cellParaIndex }];
+}
+
 function path(pos: DocumentPosition): string {
-  return JSON.stringify(pos.cellPath?.length ? pos.cellPath : [{ controlIndex: pos.controlIndex, cellIndex: pos.cellIndex, cellParaIndex: pos.cellParaIndex }]);
+  return JSON.stringify(cellPath(pos));
+}
+
+function samePosition(a: DocumentPosition, b: DocumentPosition): boolean {
+  if (a.sectionIndex !== b.sectionIndex || a.paragraphIndex !== b.paragraphIndex
+    || a.charOffset !== b.charOffset || a.parentParaIndex !== b.parentParaIndex
+    || Boolean(a.isTextBox) !== Boolean(b.isTextBox)) return false;
+  if (!cell(a)) return true;
+
+  const left = cellPath(a), right = cellPath(b);
+  return left.length === right.length && left.every((entry, index) => {
+    const other = right[index];
+    return entry.controlIndex === other.controlIndex && entry.cellIndex === other.cellIndex
+      && entry.cellParaIndex === other.cellParaIndex;
+  });
 }
 
 export class AiEditor {
@@ -66,6 +84,15 @@ export class AiEditor {
       throw new Error('문서가 바뀌었어요. 글을 넣을 위치나 다듬을 문장을 다시 골라 주세요.');
     }
     validateAiTarget(target, this.wasm.documentGeneration, this.revision, this.paragraph(target.start));
+  }
+
+  assertCurrentPosition(target: AiEditTarget, mode: 'draft' | 'rewrite'): void {
+    this.assertCurrent(target);
+    const current = mode === 'draft' ? this.captureDraft() : this.capture();
+    if (current.generation !== target.generation || current.revision !== target.revision
+      || current.text !== target.text || !samePosition(current.start, target.start) || !samePosition(current.end, target.end)) {
+      throw new Error('문서에서 위치나 선택이 바뀌었어요. 다시 미리본 뒤 넣어 주세요.');
+    }
   }
 
   applyDraft(target: AiEditTarget, proposed: string): void {
