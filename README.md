@@ -33,9 +33,11 @@ PC에서는 오른쪽 패널이나 도구 모음의 **글쓰기 도우미**, 작
 
 RHWP 오픈소스를 바탕으로 만든 독립 HWP/HWPX 문서 편집기입니다. 한컴의 공식 제품이나 제휴 서비스가 아닙니다. 이전 이름 ‘글결’의 문서와 백업을 그대로 읽습니다. 파일을 브라우저에서 열고 수정하여 내려받습니다.
 
-**운영 주소:** [오픈소스 한글 열기](https://rhwp-workspace.coders.kr). 최근 확인한 운영 상태는 v0.3.1 `ready`이며, v0.4.0은 로컬 검증 후 같은 프로젝트에 갱신합니다. 실제 운영 검증 결과는 [글쓰기 도우미 검증 기록](AI_PANEL_CHECKS.md)에 남깁니다.
+**v0.4.0 운영 중 · `ready` (2026-11-06 검증).** [오픈소스 한글 열기](https://rhwp-workspace.coders.kr). 운영에서 양식 작성→미리보기→문서 반영→12pt 서식→HWP 다운로드·재열기를 확인했습니다. API 키는 등록하지 않았으며 AI 상태는 비활성입니다. [글쓰기 도우미 검증 기록](AI_PANEL_CHECKS.md).
 
-![운영 오픈소스 한글의 데스크톱 문서 편집 화면](screenshots/production-desktop.jpg)
+![운영 오픈소스 한글의 문서 편집기와 글쓰기 도우미](screenshots/writing-v040-desktop.png)
+
+[글쓰기 도우미 모바일 미리보기](screenshots/writing-v040-mobile.png) · [이전 버전 편집 화면](screenshots/production-desktop.jpg). 직접 작성한 시험용 모임 공지로 실제 동작을 확인한 화면입니다.
 
 [내 문서 보관함](screenshots/production-library-desktop.jpg) · [모바일 보관함](screenshots/production-library-mobile.jpg) · [모바일 서식 창](screenshots/production-mobile-format.jpg) · [모바일 배율](screenshots/production-mobile-zoom.jpg) · [모바일 표 입력](screenshots/production-mobile-table.jpg) · [가로 화면](screenshots/production-mobile-landscape.jpg) · [v0.2 이전 이력 비교 기록](screenshots/history-migration.jpg)
 
