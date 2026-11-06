@@ -26,7 +26,7 @@ export function workspaceDialog(title: string, returnFocus?: HTMLElement) {
     if (event.key === 'Tab') {
       const targets = [
         ...dialog.querySelectorAll<HTMLElement>(
-          'button:not(:disabled),input:not(:disabled),select:not(:disabled),a[href]',
+          'button:not(:disabled),input:not(:disabled),select:not(:disabled),textarea:not(:disabled),summary,a[href],[tabindex]:not([tabindex="-1"])',
         ),
       ].filter((node) => node.getClientRects().length > 0);
       const first = targets[0],

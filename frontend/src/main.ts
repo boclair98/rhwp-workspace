@@ -1,4 +1,5 @@
 import { installWorkspaceShell } from '@/ui/workspace-shell';
+import { installWorkspaceAi } from '@/ui/workspace-ai-panel';
 import { installDocumentLibrary } from '@/workspace/document-library';
 import { setHostFontProvider, onHostFontsChanged, hasHostFontProvider, prepareHostFontCatalog, getHostFontState, localFontFaceKey, type LocalFontRecord } from '@/core/local-fonts';
 import { collectHostFontRequests, collectDocumentCanvasKitFontUsage, resolveDocumentCanvasKitFontUsage, type DocumentCanvasKitFontUsage } from '@/core/host-font-requests';
@@ -290,6 +291,7 @@ const commandServices: CommandServices = {
 
 const dispatcher = new CommandDispatcher(registry, commandServices, eventBus);
 installWorkspaceShell(wasm, eventBus, dispatcher, documentState);
+installWorkspaceAi(wasm, eventBus, () => inputHandler);
 installDocumentLibrary(wasm, eventBus, documentState, dispatcher, async (document) => {
   if (!await canReplaceCurrentDocument()) return false;
   try {

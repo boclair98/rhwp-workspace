@@ -1198,6 +1198,10 @@ summary:focus-visible,
   gap: 12px;
   flex: 1;
 }
+.workspace-desktop-tools > *,
+.workspace-font-fields > label {
+  flex-shrink: 0;
+}
 .workspace-mobile-tools {
   display: none;
 }
