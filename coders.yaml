@@ -6,3 +6,14 @@ services:
     context: .
     port: 8080
     expose: public
+    env:
+      AI_RUNTIME: coders
+      AI_ENABLED: "true"
+      OPENAI_MODEL: gpt-4.1-mini
+      CODERS_AI_ORIGIN: https://rhwp-workspace.coders.kr
+      CODERS_AI_BASE_URL: ${ai.url}/v1
+      CODERS_AI_TOKEN: ${ai.token}
+  ai:
+    type: llm
+    models: [gpt-4.1-mini]
+    default_model: gpt-4.1-mini

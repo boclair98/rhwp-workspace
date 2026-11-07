@@ -119,3 +119,112 @@ test('공개 Host는 설정과 무관한 비활성 상태만 읽고 생성은 �
   }
   assert.equal(calls, 0);
 });
+
+const managedEnv = {
+  ...env,
+  AI_RUNTIME: 'coders',
+  CODERS_AI_ORIGIN: 'https://rhwp-workspace.coders.kr',
+  CODERS_AI_BASE_URL: 'https://managed.example/llm/v1',
+  CODERS_AI_TOKEN: 'managed-test-token',
+  OPENAI_MODEL: 'gpt-4.1-mini',
+};
+const firstVisitor = 'f05d4379-ec4d-4bcc-b31e-148039c5e28d';
+const secondVisitor = 'cb71d3a1-a844-4c81-b6ad-f945be544889';
+
+async function nativeTestServer(t, fetchImpl, runtimeEnv = managedEnv) {
+  const middleware = createAiMiddleware({ env: runtimeEnv, fetchImpl });
+  const server = http.createServer((req, res) => middleware(req, res, () => { res.writeHead(404); res.end(); }));
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  t.after(() => { server.closeAllConnections(); server.close(); });
+  const base = `http://127.0.0.1:${server.address().port}/api/ai`;
+  // Simulate only the headers an internal Node service would receive from the gate.
+  return {
+    status: visitor => fetch(base + '/status', { headers: visitor ? { 'X-Coders-User': visitor } : {} }),
+    post: (mode, value, visitor, headers = {}) => fetch(base + '/' + mode, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(visitor ? { 'X-Coders-User': visitor } : {}), ...headers },
+      body: JSON.stringify(value),
+    }),
+  };
+}
+
+test('Coders: 게이트 인증·동일 출처·전송 동의가 모두 있어야 생성한다', async t => {
+  let calls = 0;
+  const api = await nativeTestServer(t, async () => { calls++; return response(); });
+  const anon = await api.status();
+  assert.equal(anon.headers.get('cache-control'), 'no-store');
+  assert.deepEqual(await anon.json(), {
+    configured: false, reason: 'login_required', provider: 'OpenAI', model: null, maxTextLength: 2000, deployment: 'coders',
+  });
+  const signedIn = await api.status(firstVisitor);
+  assert.deepEqual(await signedIn.json(), {
+    configured: true, reason: null, provider: 'OpenAI', model: managedEnv.OPENAI_MODEL, maxTextLength: 2000, deployment: 'coders',
+  });
+  const origin = { Origin: managedEnv.CODERS_AI_ORIGIN };
+  for (const visitor of [null, 'forged', `${firstVisitor}, ${secondVisitor}`]) {
+    assert.equal((await api.post('rewrite', input, visitor, origin)).status, 401);
+  }
+  for (const headers of [{}, { Origin: 'https://foreign.example' }, { ...origin, 'Sec-Fetch-Site': 'cross-site' }]) {
+    assert.equal((await api.post('rewrite', input, firstVisitor, headers)).status, 403);
+  }
+  assert.equal((await api.post('rewrite', { ...input, consent: false }, firstVisitor, origin)).status, 400);
+  assert.equal((await api.post('draft', { prompt: input.prompt, consent: true, document: '전송 금지' }, firstVisitor, origin)).status, 400);
+  assert.equal(calls, 0);
+  assert.equal((await api.post('rewrite', input, firstVisitor, origin)).status, 200);
+  assert.equal(calls, 1);
+});
+
+test('Coders: 두 생성 경로가 프로젝트 토큰과 게이트 사용자만 전달하고 개인 키는 쓰지 않는다', async t => {
+  const draft = { prompt: '모임 안내문을 작성해 주세요.', consent: true };
+  const requests = [];
+  const api = await nativeTestServer(t, async (url, options) => {
+    requests.push({ url, options });
+    const body = JSON.parse(options.body);
+    return body.text.format.name === 'hangul_draft' ? response({ draftText: '모임 안내\n안녕하세요.', explanation: '' }) : response();
+  });
+  const headers = { Origin: managedEnv.CODERS_AI_ORIGIN, 'Sec-Fetch-Site': 'same-origin' };
+  const first = await api.post('draft', draft, firstVisitor, headers);
+  assert.equal(first.status, 200);
+  assert.equal((await first.json()).draftText, '모임 안내\n안녕하세요.');
+  const second = await api.post('rewrite', input, secondVisitor, headers);
+  assert.equal(second.status, 200);
+  assert.equal((await second.json()).revisedText, '수정 문장');
+  assert.equal(requests.length, 2);
+  for (const [index, { url, options }] of requests.entries()) {
+    assert.equal(url, 'https://managed.example/llm/v1/responses');
+    assert.equal(options.redirect, 'error');
+    assert.equal(options.headers.Authorization, `Bearer ${managedEnv.CODERS_AI_TOKEN}`);
+    assert.equal(options.headers['X-Coders-User'], index === 0 ? firstVisitor : secondVisitor);
+    const body = JSON.parse(options.body);
+    assert.equal(body.store, false);
+    assert.equal(body.model, managedEnv.OPENAI_MODEL);
+    assert.equal(body.text.format.strict, true);
+    assert.deepEqual(JSON.parse(body.input[0].content), index === 0
+      ? { request: draft.prompt }
+      : { request: input.prompt, selectedText: input.text });
+  }
+});
+
+test('Coders: 관리형 환경이 누락되면 개인 키로 우회하지 않는다', async t => {
+  const api = await nativeTestServer(t, () => assert.fail('No provider request expected'), { ...managedEnv, CODERS_AI_TOKEN: '' });
+  const status = await (await api.status(firstVisitor)).json();
+  assert.equal(status.reason, 'service_unavailable');
+  assert.equal(status.model, null);
+  assert.equal((await api.post('rewrite', input, firstVisitor, { Origin: managedEnv.CODERS_AI_ORIGIN })).status, 503);
+  assert.equal(aiConfiguration({ ...managedEnv, CODERS_AI_BASE_URL: 'https://managed.example/llm/v1?secret=ignored' }, firstVisitor).configured, false);
+});
+
+test('Coders: 한도는 사용자별로 적용하며 공급자 오류의 원문을 내보내지 않는다', async t => {
+  const api = await nativeTestServer(t, async (_, options) => options.headers['X-Coders-User'] === secondVisitor
+    ? new Response(managedEnv.CODERS_AI_TOKEN, { status: 402 }) : response());
+  const origin = { Origin: managedEnv.CODERS_AI_ORIGIN };
+  for (let i = 0; i < 6; i++) assert.equal((await api.post('rewrite', input, firstVisitor, origin)).status, 200);
+  const limited = await api.post('rewrite', input, firstVisitor, origin);
+  assert.equal(limited.status, 429);
+  assert.equal((await limited.json()).error.code, 'LOCAL_LIMIT');
+  const quota = await api.post('rewrite', input, secondVisitor, origin);
+  assert.equal(quota.status, 429);
+  const body = await quota.json();
+  assert.equal(body.error.code, 'AI_LIMIT');
+  assert.equal(body.error.message.includes(managedEnv.CODERS_AI_TOKEN), false);
+});

@@ -3,7 +3,7 @@ import type { EventBus } from '../core/event-bus';
 import type { InputHandler } from '../engine/input-handler';
 import { AiEditor } from '../workspace/ai-editor';
 import { revisionDifference, validateDraft, validateRevision, codePointLength, type AiEditTarget } from '../workspace/ai-edit';
-import { readAiConnection, makeAiWriting, type AiConnection } from '../workspace/ai-client';
+import { AiAccessError, isCodersSite, readAiConnection, makeAiWriting, type AiConnection } from '../workspace/ai-client';
 import { WRITING_TEMPLATES, renderWritingTemplate, type WritingTemplateId } from '../workspace/writing-templates';
 import { workspaceDialog } from './workspace-dialog';
 import { showToast } from './toast';
@@ -64,6 +64,13 @@ export function installWorkspaceAi(wasm: WasmBridge, bus: EventBus, getInput: ()
         <p data-ai-selected class="workspace-ai-selected">문서에서 글을 넣을 곳을 눌러 주세요.</p><p class="workspace-ai-caption" data-ai-count></p>
       </section>
       <section class="workspace-ai-request" data-ai-request aria-label="글쓰기 요청" hidden>
+        <div class="workspace-ai-account" data-ai-account hidden>
+          <p class="workspace-ai-caption" data-ai-account-message role="status"></p>
+          <div class="workspace-ai-account-actions">
+            <a class="workspace-button workspace-primary" data-ai-login target="_blank" rel="noopener noreferrer" hidden>코더스 로그인</a>
+            <button type="button" class="workspace-button" data-ai-account-refresh>로그인 확인</button>
+          </div>
+        </div>
         <div data-ai-request-fields>
         <label for="workspace-ai-prompt" data-ai-prompt-label>어떤 글을 쓸까요?</label>
         <p class="workspace-ai-caption">아래 예시를 골라 고쳐 써도 좋아요.</p>
@@ -121,6 +128,14 @@ export function installWorkspaceAi(wasm: WasmBridge, bus: EventBus, getInput: ()
   const footer = find('.workspace-ai-footer');
   const footerHint = find('[data-ai-footer-hint]');
   const consent = find<HTMLInputElement>('[data-ai-consent]');
+  const account = find('[data-ai-account]');
+  const login = find<HTMLAnchorElement>('[data-ai-login]');
+  const accountRefresh = find<HTMLButtonElement>('[data-ai-account-refresh]');
+  const localRefresh = find<HTMLButtonElement>('[data-ai-refresh]');
+  const loginUrl = new URL('https://mcp.coders.kr/sso/login');
+  loginUrl.searchParams.set('return_to', location.origin + '/');
+  login.href = loginUrl.href;
+  const managedSite = () => connection?.deployment === 'coders' || isCodersSite();
   const manualPreview = find<HTMLButtonElement>('[data-ai-preview]');
   const reviewText = find<HTMLTextAreaElement>('#workspace-review-text');
   const continueWriting = find<HTMLButtonElement>('[data-writing-continue]');
@@ -148,6 +163,7 @@ export function installWorkspaceAi(wasm: WasmBridge, bus: EventBus, getInput: ()
   let open = !narrow.matches;
   let connectionEpoch = 0;
   let libraryOpen = false;
+  let checkingLoginOnReturn = false;
 
   const say = (message: string, error = false) => {
     feedback.textContent = message;
@@ -210,7 +226,7 @@ export function installWorkspaceAi(wasm: WasmBridge, bus: EventBus, getInput: ()
     find('[data-writing-methods]').hidden = !draft;
     find('[data-writing-templates]').hidden = !draft || method !== 'template';
     find('[data-ai-request]').hidden = draft && method === 'template';
-    find('[data-ai-request-fields]').hidden = !draft && !connection?.configured;
+    find('[data-ai-request-fields]').hidden = (!draft || managedSite()) && !connection?.configured;
     for (const button of methodButtons) button.setAttribute('aria-pressed', String(button.dataset.writingMethod === method));
     if (!draft && !connection?.configured) find<HTMLDetailsElement>('.workspace-ai-manual').open = true;
     for (const button of modeButtons) button.setAttribute('aria-pressed', String(button.dataset.aiMode === mode));
@@ -222,7 +238,10 @@ export function installWorkspaceAi(wasm: WasmBridge, bus: EventBus, getInput: ()
     prompt.placeholder = draft ? '예: 다음 주에 있을 모임 안내문을 써 주세요.' : '예: 어르신도 읽기 쉽게 다듬어 주세요.';
     manual.placeholder = draft ? '문서에 넣을 글을 여기에 적어 주세요.' : '선택한 문장을 대신할 글을 적어 주세요.';
     find('[data-ai-manual-label]').textContent = draft ? '넣을 글' : '다듬은 글';
-    find('[data-ai-consent-text]').textContent = draft ? '요청에 적은 내용을 OpenAI에 보내도 좋아요.' : '선택한 문장과 요청을 OpenAI에 보내도 좋아요.';
+    const destination = managedSite() ? '코더스를 거쳐 OpenAI에' : 'OpenAI에';
+    find('[data-ai-consent-text]').textContent = draft
+      ? `요청에 적은 내용을 ${destination} 보내도 좋아요.`
+      : `선택한 문장과 요청을 ${destination} 보내도 좋아요.`;
     showTarget(); sync();
   };
   const capture = (force = false) => {
@@ -278,27 +297,41 @@ export function installWorkspaceAi(wasm: WasmBridge, bus: EventBus, getInput: ()
   };
   const refreshConnection = async () => {
     const epoch = ++connectionEpoch;
-    const button = find<HTMLButtonElement>('[data-ai-refresh]');
-    button.disabled = true;
+    localRefresh.disabled = accountRefresh.disabled = true;
+    let status: AiConnection | null = null;
+    let errorMessage = '';
     try {
-      const status = await readAiConnection(AbortSignal.timeout(5000));
-      if (epoch !== connectionEpoch) return;
-      connection = status;
-      find('[data-ai-connection]').textContent = status.configured ? 'AI도 사용할 수 있어요' : '양식으로 바로 쓸 수 있어요';
-      find('[data-ai-settings-toggle]').hidden = status.reason === 'local_only';
-      panel.classList.toggle('workspace-ai-ready', status.configured);
-      find('[data-ai-api-hint]').textContent = status.configured
-        ? '날짜, 장소, 이름은 미리보기에서 확인해 주세요.'
-        : '아직 AI가 연결되지 않았어요. 새 글은 양식으로 쓰고, 문장은 직접 고쳐 넣을 수 있어요.';
-      find('[data-ai-consent-wrap]').hidden = !status.configured;
+      status = await readAiConnection(AbortSignal.timeout(10000));
     } catch (error) {
-      if (epoch !== connectionEpoch) return;
-      connection = null;
-      panel.classList.remove('workspace-ai-ready');
-      find('[data-ai-connection]').textContent = '양식으로 바로 쓸 수 있어요';
-      find('[data-ai-api-hint]').textContent = (error as Error).message;
-      find('[data-ai-consent-wrap]').hidden = true;
-    } finally { if (epoch === connectionEpoch) { button.disabled = false; showMode(); } }
+      errorMessage = (error as Error).message;
+    }
+    if (epoch !== connectionEpoch) return;
+    const wasInAccount = account.contains(document.activeElement);
+    connection = status;
+    const configured = status?.configured === true;
+    const managed = managedSite();
+    const needsLogin = managed && (status?.reason === 'login_required' || status?.reason === 'platform_gate');
+    find('[data-ai-connection]').textContent = configured
+      ? 'AI도 사용할 수 있어요'
+      : needsLogin ? 'AI는 로그인 후 이용할 수 있어요' : '양식으로 바로 쓸 수 있어요';
+    find('[data-ai-settings-toggle]').hidden = managed || !status || status.reason === 'local_only';
+    if (managed) find('[data-ai-settings]').hidden = true;
+    account.hidden = !managed || configured;
+    login.hidden = !needsLogin;
+    accountRefresh.textContent = needsLogin ? '로그인 확인' : '다시 확인';
+    find('[data-ai-account-message]').textContent = status?.reason === 'platform_gate'
+      ? '코더스 로그인 또는 이용 한도를 확인해 주세요. 로그인은 새 탭에서 열려요.'
+      : needsLogin ? '코더스에 로그인하면 AI로 글을 쓸 수 있어요. 새 탭에서 로그인하고 이 편집기로 돌아와 주세요.'
+        : errorMessage || '지금 AI에 연결할 수 없어요. 잠시 후 다시 확인해 주세요.';
+    panel.classList.toggle('workspace-ai-ready', configured);
+    find('[data-ai-api-hint]').textContent = configured
+      ? managed ? '코더스 이용 한도에서 처리돼요. 날짜, 장소, 이름은 미리보기에서 확인해 주세요.' : '날짜, 장소, 이름은 미리보기에서 확인해 주세요.'
+      : managed ? '' : errorMessage || '아직 AI가 연결되지 않았어요. 새 글은 양식으로 쓰고, 문장은 직접 고쳐 넣을 수 있어요.';
+    if (!configured) consent.checked = false;
+    find('[data-ai-consent-wrap]').hidden = !configured;
+    localRefresh.disabled = accountRefresh.disabled = false;
+    showMode();
+    if (wasInAccount && configured && !find('[data-ai-request-fields]').hidden) prompt.focus({ preventScroll: true });
   };
 
   const renderTemplateFields = () => {
@@ -378,7 +411,14 @@ export function installWorkspaceAi(wasm: WasmBridge, bus: EventBus, getInput: ()
     const settings = find('[data-ai-settings]'); settings.hidden = !settings.hidden;
     find('[data-ai-settings-toggle]').setAttribute('aria-expanded', String(!settings.hidden));
   });
-  find('[data-ai-refresh]').addEventListener('click', () => void refreshConnection());
+  localRefresh.addEventListener('click', () => void refreshConnection());
+  accountRefresh.addEventListener('click', () => void refreshConnection());
+  login.addEventListener('click', () => { checkingLoginOnReturn = true; });
+  window.addEventListener('focus', () => {
+    if (!checkingLoginOnReturn) return;
+    checkingLoginOnReturn = false;
+    void refreshConnection();
+  });
   find('[data-ai-capture]').addEventListener('click', () => capture(true));
   reviewText.addEventListener('input', () => { abort(); refreshReviewText(); });
   find('[data-review-rebind]').addEventListener('click', () => {
@@ -471,6 +511,7 @@ export function installWorkspaceAi(wasm: WasmBridge, bus: EventBus, getInput: ()
     } catch (error) {
       if (request !== controller) return;
       say(controller.signal.aborted ? '요청을 취소했어요. 문장은 그대로예요.' : (error as Error).message, !controller.signal.aborted);
+      if (error instanceof AiAccessError) void refreshConnection();
     } finally { if (request === controller) request = null; sync(); }
   });
   cancel.addEventListener('click', () => { cancelRequest(); say('요청을 취소했어요. 문장은 그대로예요.'); });

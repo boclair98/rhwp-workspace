@@ -252,6 +252,25 @@
 .workspace-ai-settings dl { margin: 10px 0; }
 .workspace-ai-settings dt { font-size: 13px; font-weight: 700; margin-top: 8px; overflow-wrap: anywhere; }
 .workspace-ai-settings dd { margin: 0; }
+.workspace-ai-account {
+  padding: 12px;
+  border: 1px solid var(--ui-border);
+  border-radius: 12px;
+  background: var(--ui-surface-muted);
+}
+.workspace-ai-account p { margin: 0 0 8px; }
+.workspace-ai-account-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.workspace-ai-account-actions .workspace-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1 1 110px;
+  min-height: 44px;
+  padding-inline: 8px;
+  font-size: 14px;
+  text-decoration: none;
+}
+#workspace-ai-panel .workspace-ai-account a:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
 
 @media (min-width: 1101px) {
   #studio-root.workspace-ai-open { grid-template-columns: 208px minmax(0, 1fr) 384px; }
