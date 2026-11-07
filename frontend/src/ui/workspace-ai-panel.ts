@@ -31,11 +31,10 @@ export function installWorkspaceAi(wasm: WasmBridge, bus: EventBus, getInput: ()
   panel.innerHTML = `
     <header class="workspace-ai-heading">
       <span class="workspace-ai-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M13 20h8M17 4a2.1 2.1 0 0 1 3 3L9 18l-5 1 1-5Z"/><path d="m15 6 3 3"/></svg></span>
-      <div><h2>${panelTitle}</h2><p>필요한 내용을 적으면 초안을 만들어 드려요.</p></div>
+      <div><h2>${panelTitle}</h2></div>
       <button type="button" class="workspace-button" data-ai-close aria-label="${panelTitle} 닫기">닫기</button>
     </header>
     <div class="workspace-ai-body">
-      <div class="workspace-writing-tools"><div data-writing-library></div><button type="button" data-ai-size aria-pressed="false">글자 크게</button></div>
       <div data-ai-compose>
       <button type="button" data-ai-settings-toggle aria-expanded="false" aria-controls="workspace-ai-settings" hidden>AI 연결 설정</button>
       <section class="workspace-ai-settings" id="workspace-ai-settings" data-ai-settings hidden aria-label="AI 연결 설정">
@@ -43,40 +42,41 @@ export function installWorkspaceAi(wasm: WasmBridge, bus: EventBus, getInput: ()
         <dl><dt>AI_ENABLED</dt><dd><code>true</code></dd><dt>OPENAI_API_KEY</dt><dd>발급받은 키 · 화면에 입력하지 않아요</dd><dt>OPENAI_MODEL</dt><dd>사용할 모델 ID</dd></dl>
         <p>현재 요청은 OpenAI Responses API로 연결돼요. 실제 호출 전에는 키와 모델 접근 권한을 확인해야 해요.</p><button type="button" class="workspace-button" data-ai-refresh>연결 상태 다시 확인</button>
       </section>
-      <div class="workspace-ai-modes" role="group" aria-label="글쓰기 작업">
-        <button type="button" data-ai-mode="draft" aria-pressed="true">새 글 쓰기</button>
-        <button type="button" data-ai-mode="rewrite" aria-pressed="false">문장 다듬기</button>
-      </div>
-      <section class="workspace-ai-account" data-ai-account hidden aria-label="AI 사용 안내">
-          <p class="workspace-ai-caption" data-ai-account-message role="status"></p>
-          <div class="workspace-ai-account-actions">
-            <a class="workspace-button workspace-primary" data-ai-login target="_blank" rel="noopener noreferrer" hidden>코더스 로그인</a>
-            <button type="button" class="workspace-button" data-ai-account-refresh>로그인 확인</button>
-          </div>
-      </section>
-      <div class="workspace-writing-heading" data-draft-heading>
-        <h3 id="workspace-template-title">어떤 글을 쓸까요?</h3>
-        <button type="button" data-writing-chat aria-expanded="false" aria-controls="workspace-ai-request">채팅으로 쓰기</button>
-      </div>
-      <section class="workspace-writing-templates" data-writing-templates aria-labelledby="workspace-template-title">
-        <p class="workspace-ai-caption">종류를 고르고 아는 내용만 적어 주세요.</p>
-        <div class="workspace-ai-presets" data-template-choices role="group" aria-label="글 종류"></div>
-        <form data-template-form aria-label="글에 넣을 내용" novalidate></form>
-        <button type="button" class="workspace-button" data-template-preview>양식 미리보기</button>
-      </section>
       <section class="workspace-ai-selection" data-ai-selection aria-labelledby="workspace-ai-target-title" hidden>
         <div class="workspace-ai-label-row"><h3 id="workspace-ai-target-title">다듬을 문장</h3><button type="button" data-ai-capture>선택 가져오기</button></div>
         <p data-ai-selected class="workspace-ai-selected"></p><p class="workspace-ai-caption" data-ai-count></p>
       </section>
-      <section class="workspace-ai-request" id="workspace-ai-request" data-ai-request aria-label="글쓰기 요청" hidden>
-        <label for="workspace-ai-prompt" data-ai-prompt-label>어떤 글이 필요한가요?</label>
-        <p class="workspace-ai-caption" id="workspace-ai-prompt-hint" data-ai-prompt-hint>하고 싶은 말을 편하게 적어 주세요.</p>
+      <section class="workspace-ai-request" id="workspace-ai-request" data-ai-request aria-labelledby="workspace-ai-prompt-title">
+        <h3 id="workspace-ai-prompt-title" data-ai-prompt-label>무엇을 도와드릴까요?</h3>
+        <div class="workspace-ai-composer">
+          <textarea id="workspace-ai-prompt" rows="3" maxlength="1000" aria-labelledby="workspace-ai-prompt-title" aria-describedby="workspace-ai-prompt-note"></textarea>
+          <div class="workspace-ai-composer-actions" data-ai-composer-actions></div>
+        </div>
+        <p class="workspace-ai-caption" id="workspace-ai-prompt-note" data-ai-prompt-note role="status"></p>
         <div class="workspace-ai-presets" data-ai-rewrite-examples hidden aria-label="문장 다듬기 예시">
           <button type="button" data-ai-prompt="뜻을 유지하고 더 쉬운 말로 다듬어 주세요.">쉬운 말로</button>
           <button type="button" data-ai-prompt="뜻을 유지하고 짧고 분명하게 다듬어 주세요.">짧게</button>
           <button type="button" data-ai-prompt="의미는 바꾸지 않고 맞춤법과 띄어쓰기만 고쳐 주세요.">맞춤법</button>
         </div>
-        <textarea id="workspace-ai-prompt" rows="3" maxlength="1000" aria-describedby="workspace-ai-prompt-hint"></textarea>
+      </section>
+      <section class="workspace-ai-account" data-ai-account hidden aria-label="AI 사용 안내">
+        <p class="workspace-ai-caption" data-ai-account-message role="status"></p>
+        <div class="workspace-ai-account-actions">
+          <a class="workspace-button workspace-primary" data-ai-login target="_blank" rel="noopener noreferrer" hidden>코더스 로그인</a>
+          <button type="button" class="workspace-button" data-ai-account-refresh>로그인 확인</button>
+        </div>
+      </section>
+      <div class="workspace-ai-switches" role="group" aria-label="다른 글쓰기 방법">
+        <button type="button" data-writing-chat aria-expanded="false" aria-controls="workspace-writing-templates">양식으로 쓰기</button>
+        <button type="button" data-ai-mode="draft" hidden>새 글 쓰기</button>
+        <button type="button" data-ai-mode="rewrite">문장 다듬기</button>
+      </div>
+      <section class="workspace-writing-templates" id="workspace-writing-templates" data-writing-templates aria-labelledby="workspace-template-title" hidden>
+        <h3 id="workspace-template-title">어떤 글을 쓸까요?</h3>
+        <p class="workspace-ai-caption">종류를 고르고 아는 내용만 적어 주세요.</p>
+        <div class="workspace-ai-presets" data-template-choices role="group" aria-label="글 종류"></div>
+        <form data-template-form aria-label="글에 넣을 내용" novalidate></form>
+        <button type="button" class="workspace-button" data-template-preview>양식 미리보기</button>
       </section>
       <details class="workspace-ai-manual"><summary>직접 쓴 글 넣기</summary><label for="workspace-ai-manual-text" data-ai-manual-label>넣을 글</label><textarea id="workspace-ai-manual-text" rows="3"></textarea><button type="button" class="workspace-button" data-ai-preview>미리보기</button></details>
       <button type="button" class="workspace-button workspace-resume" data-review-resume hidden>이전에 만든 글 계속 보기</button>
@@ -92,11 +92,15 @@ export function installWorkspaceAi(wasm: WasmBridge, bus: EventBus, getInput: ()
       </section>
       <section class="workspace-writing-done" data-writing-done hidden tabindex="-1" aria-label="문서 반영 완료"><span aria-hidden="true">✓</span><h3>문서에 넣었어요</h3><p>문서에서 서식을 더 다듬거나,<br>한글 파일로 저장할 수 있어요.</p><p class="workspace-ai-caption">되돌리기는 Ctrl+Z 또는 상단 화살표를 눌러 주세요.</p></section>
       <p class="workspace-ai-feedback" role="status" aria-live="polite" tabindex="-1" data-ai-feedback></p>
+      <div class="workspace-writing-tools"><div data-writing-library></div><button type="button" data-ai-size aria-pressed="false">글자 크게</button></div>
     </div>
-    <footer class="workspace-ai-footer"><p id="workspace-ai-action-note" data-ai-footer-hint>만든 글은 미리보기에서 확인할 수 있어요.</p><div>
+    <footer class="workspace-ai-footer"><p id="workspace-ai-action-note" data-ai-footer-hint>만든 글은 미리보기에서 확인할 수 있어요.</p><div data-ai-footer-actions>
       <button type="button" class="workspace-button" data-ai-discard hidden>입력 수정</button>
       <button type="button" class="workspace-button" data-ai-cancel hidden>취소</button>
-      <button type="button" class="workspace-button workspace-primary" data-ai-generate aria-describedby="workspace-ai-action-note" disabled>초안 만들기</button>
+      <button type="button" class="workspace-button workspace-primary" data-ai-generate aria-describedby="workspace-ai-action-note" disabled>
+        <span data-ai-generate-label>초안 만들기</span>
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" hidden><path d="M12 19V5m-6 6 6-6 6 6"/></svg>
+      </button>
       <button type="button" class="workspace-button workspace-primary" data-ai-apply hidden disabled>문서에 넣기</button>
       <button type="button" class="workspace-button" data-writing-continue hidden>계속 작성</button><button type="button" class="workspace-button workspace-primary" data-writing-download hidden>파일 저장</button>
       <button type="button" class="workspace-button workspace-primary" data-writing-library-close hidden>글쓰기로 돌아가기</button>
@@ -106,6 +110,11 @@ export function installWorkspaceAi(wasm: WasmBridge, bus: EventBus, getInput: ()
   const prompt = find<HTMLTextAreaElement>('#workspace-ai-prompt');
   const manual = find<HTMLTextAreaElement>('#workspace-ai-manual-text');
   const generate = find<HTMLButtonElement>('[data-ai-generate]');
+  const generateLabel = find('[data-ai-generate-label]');
+  const sendIcon = generate.querySelector('svg')!;
+  const composerActions = find('[data-ai-composer-actions]');
+  const footerActions = find('[data-ai-footer-actions]');
+  const promptNote = find('[data-ai-prompt-note]');
   const apply = find<HTMLButtonElement>('[data-ai-apply]');
   const discard = find<HTMLButtonElement>('[data-ai-discard]');
   const cancel = find<HTMLButtonElement>('[data-ai-cancel]');
@@ -132,7 +141,7 @@ export function installWorkspaceAi(wasm: WasmBridge, bus: EventBus, getInput: ()
   const chat = find<HTMLButtonElement>('[data-writing-chat]');
   const templateValues: Partial<Record<WritingTemplateId, Record<string, string>>> = {};
   let templateId: WritingTemplateId = 'notice';
-  let method: 'template' | 'ai' = 'template';
+  let method: 'template' | 'ai' = 'ai';
   const inputs: Record<'draft' | 'rewrite', { prompt: string; manual: string; preview?: Proposal }> = { draft: { prompt: '', manual: '' }, rewrite: { prompt: '', manual: '' } };
   let mode: keyof typeof inputs = 'draft';
   let target: AiEditTarget | null = null;
@@ -171,13 +180,33 @@ export function installWorkspaceAi(wasm: WasmBridge, bus: EventBus, getInput: ()
     const template = draft && method === 'template';
     const ai = connection?.configured === true;
     const direct = !draft && !ai;
+    const composer = !template && !direct;
+    const composing = !libraryOpen && stage === 'compose';
     const missingSelection = !draft && (!target || stale);
     const missingText = !template && !(direct ? manual.value : prompt.value).trim();
-    generate.hidden = libraryOpen || stage !== 'compose' || (draft && !template && !ai);
-    generate.disabled = generate.hidden || loading || missingSelection || !!request || missingText;
-    if (request) generate.textContent = '글을 쓰고 있어요…';
-    else if (ai) generate.textContent = draft ? 'AI로 초안 만들기' : 'AI로 다듬기';
-    else generate.textContent = draft ? '양식 미리보기' : '다듬은 글 미리보기';
+    const actions = composer ? composerActions : footerActions;
+    if (generate.parentElement !== actions) actions.append(cancel, generate);
+    footer.hidden = composing && composer;
+    generate.hidden = !composing;
+    generate.disabled = !composing || loading || missingSelection || !!request || missingText || (composer && !ai);
+    generateLabel.hidden = composer;
+    sendIcon.toggleAttribute('hidden', !composer);
+    if (composer) {
+      generate.setAttribute('aria-label', '요청 보내기');
+      generate.title = '요청 보내기 (Enter)';
+    } else {
+      generate.removeAttribute('aria-label');
+      generate.removeAttribute('title');
+      if (request) generateLabel.textContent = '글을 쓰고 있어요…';
+      else if (ai) generateLabel.textContent = 'AI로 초안 만들기';
+      else generateLabel.textContent = draft ? '양식 미리보기' : '다듬은 글 미리보기';
+    }
+    generate.setAttribute('aria-describedby', composer ? promptNote.id : footerHint.id);
+    let note = draft ? '보내면 요청을 OpenAI로 전송해요.' : '보내면 선택한 문장과 요청을 OpenAI로 전송해요.';
+    if (request) note = '글을 쓰고 있어요…';
+    else if (missingSelection) note = targetHint();
+    else if (!ai) note = 'AI에 연결하면 요청을 보낼 수 있어요.';
+    if (promptNote.textContent !== note) promptNote.textContent = note;
     templatePreview.hidden = !template || !ai;
     templatePreview.disabled = loading || !!request;
     cancel.hidden = libraryOpen || !request;
@@ -209,7 +238,7 @@ export function installWorkspaceAi(wasm: WasmBridge, bus: EventBus, getInput: ()
     trigger.setAttribute('aria-expanded', String(open));
     trigger.setAttribute('aria-label', `${panelTitle} ${open ? '닫기' : '열기'}`);
     trigger.classList.toggle('active', open);
-    panel.setAttribute('aria-busy', String(!!request));
+    panel.setAttribute('aria-busy', String(!!request && !composer));
   };
   const clearProposal = () => { proposal = null; reviewTarget = null; reviewError = ''; stage = 'compose'; sync(); };
   const detachReview = () => { reviewTarget = null; sync(); };
@@ -225,18 +254,17 @@ export function installWorkspaceAi(wasm: WasmBridge, bus: EventBus, getInput: ()
   };
   const showMode = () => {
     const draft = mode === 'draft';
-    find('[data-draft-heading]').hidden = !draft;
     find('[data-writing-templates]').hidden = !draft || method !== 'template';
     find('[data-ai-request]').hidden = draft ? method !== 'ai' : !connection?.configured;
     find('[data-ai-selection]').hidden = draft;
-    chat.setAttribute('aria-expanded', String(draft && method === 'ai'));
-    chat.textContent = method === 'ai' ? '글 종류 고르기' : '채팅으로 쓰기';
+    chat.hidden = !draft;
+    chat.setAttribute('aria-expanded', String(draft && method === 'template'));
+    chat.textContent = method === 'ai' ? '양식으로 쓰기' : '입력창으로 돌아가기';
     if (!draft && !connection?.configured) find<HTMLDetailsElement>('.workspace-ai-manual').open = true;
-    for (const button of modeButtons) button.setAttribute('aria-pressed', String(button.dataset.aiMode === mode));
-    find('[data-ai-prompt-label]').textContent = draft ? '어떤 글이 필요한가요?' : '어떻게 다듬을까요?';
-    find('[data-ai-prompt-hint]').textContent = draft ? '하고 싶은 말을 편하게 적어 주세요.' : '아래에서 고르거나 원하는 말을 적어 주세요.';
+    for (const button of modeButtons) button.hidden = button.dataset.aiMode === mode;
+    find('[data-ai-prompt-label]').textContent = draft ? '무엇을 도와드릴까요?' : '어떻게 다듬을까요?';
     find('[data-ai-rewrite-examples]').hidden = draft;
-    prompt.placeholder = draft ? '예: 금요일 오후 2시에 주민센터에서 책 모임이 있어요.' : '예: 읽기 쉬운 말로 바꿔 주세요.';
+    prompt.placeholder = draft ? '예: 다음 주 주민센터 모임 안내문을 써 주세요.' : '예: 읽기 쉬운 말로 바꿔 주세요.';
     manual.placeholder = draft ? '문서에 넣을 글을 여기에 적어 주세요.' : '선택한 문장을 대신할 글을 적어 주세요.';
     find('[data-ai-manual-label]').textContent = draft ? '넣을 글' : '다듬은 글';
     showTarget(); sync();
@@ -472,6 +500,7 @@ export function installWorkspaceAi(wasm: WasmBridge, bus: EventBus, getInput: ()
   chat.addEventListener('click', () => {
     abort(); method = method === 'template' ? 'ai' : 'template'; detachReview(); say(''); showMode();
     if (method === 'ai') prompt.focus();
+    else find<HTMLButtonElement>(`[data-template-id="${templateId}"]`).focus();
   });
   for (const button of modeButtons) button.addEventListener('click', () => {
     const next = button.dataset.aiMode as keyof typeof inputs;
@@ -484,7 +513,7 @@ export function installWorkspaceAi(wasm: WasmBridge, bus: EventBus, getInput: ()
     clearProposal();
     const previous = inputs[mode].preview;
     if (previous) { proposal = { ...previous }; reviewText.value = previous.text; }
-    say(''); showMode(); capture();
+    say(''); showMode(); capture(); focusInput();
   });
   for (const button of panel.querySelectorAll<HTMLButtonElement>('[data-ai-prompt]')) button.addEventListener('click', () => {
     prompt.value = button.dataset.aiPrompt!; prompt.dispatchEvent(new Event('input')); prompt.focus();
@@ -493,6 +522,12 @@ export function installWorkspaceAi(wasm: WasmBridge, bus: EventBus, getInput: ()
     if (request) { cancelRequest(); say('요청이 바뀌어 이전 생성을 취소했어요.'); }
     if (proposal?.source === 'ai') { detachReview(); say('이전에 만든 글은 남아 있어요. 새 요청으로 만들 수도 있어요.'); }
     sync();
+  });
+  prompt.addEventListener('keydown', event => {
+    if (event.key !== 'Enter' || event.shiftKey || event.isComposing || event.keyCode === 229
+      || event.repeat || generate.disabled || generate.parentElement !== composerActions) return;
+    event.preventDefault();
+    generate.click();
   });
   manual.addEventListener('input', () => { if (proposal?.source === 'manual') detachReview(); sync(); });
   manualPreview.addEventListener('click', () => {
@@ -539,7 +574,8 @@ export function installWorkspaceAi(wasm: WasmBridge, bus: EventBus, getInput: ()
     detachReview();
     const controller = new AbortController(); request = controller;
     const captured = target;
-    say('글을 준비하고 있어요. 잠시만 기다려 주세요.'); sync();
+    say(generate.parentElement === composerActions ? '' : '글을 준비하고 있어요. 잠시만 기다려 주세요.');
+    sync();
     try {
       const result = await makeAiWriting(input, AbortSignal.any([controller.signal, AbortSignal.timeout(50000)]));
       if (request !== controller) return;
@@ -551,7 +587,11 @@ export function installWorkspaceAi(wasm: WasmBridge, bus: EventBus, getInput: ()
       if (error instanceof AiAccessError) void refreshConnection();
     } finally { if (request === controller) request = null; sync(); }
   });
-  cancel.addEventListener('click', () => { cancelRequest(); say('요청을 취소했어요. 적은 내용은 남아 있어요.'); });
+  cancel.addEventListener('click', () => {
+    cancelRequest();
+    say('요청을 취소했어요. 적은 내용은 남아 있어요.');
+    focusInput();
+  });
   discard.addEventListener('click', () => {
     stage = 'compose'; sync(); say('만든 글은 ‘이전에 만든 글 계속 보기’에 남아 있어요.');
     if (proposal?.source === 'manual') {
