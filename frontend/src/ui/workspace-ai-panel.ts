@@ -8,7 +8,7 @@ import { WRITING_TEMPLATES, renderWritingTemplate, type WritingTemplateId } from
 import { workspaceDialog } from './workspace-dialog';
 import { showToast } from './toast';
 import type { CommandDispatcher } from '../command/dispatcher';
-import { saveWritingDraft, loadWritingDraft, type WritingDraft } from '../workspace/writing-draft-store';
+import { installWritingLibrary } from './workspace-writing-library';
 
 const panelTitle = '한글 글쓰기 도우미';
 type Proposal = { text: string; source: 'manual' | 'ai' | 'template'; explanation?: string };
@@ -37,10 +37,7 @@ export function installWorkspaceAi(wasm: WasmBridge, bus: EventBus, getInput: ()
     <div class="workspace-ai-body">
       <div class="workspace-ai-connection"><span data-ai-connection role="status">양식으로 바로 쓸 수 있어요</span><button type="button" data-ai-size aria-pressed="false">글자 크게</button></div>
       <ol class="workspace-writing-steps" aria-label="글쓰기 순서"><li data-writing-step="compose">1 작성</li><li data-writing-step="review">2 글 확인</li><li data-writing-step="done">3 문서 반영</li></ol>
-      <details class="workspace-draft-tools"><summary>초안 보관·불러오기</summary><div class="workspace-draft-actions"><button type="button" class="workspace-button" data-draft-save>초안 보관</button><button type="button" class="workspace-button" data-draft-load>보관한 초안</button></div>
-      <p class="workspace-ai-caption" data-draft-status>직접 보관한 초안 1개를 이 브라우저에 남겨요.</p>
-      </details>
-      <section class="workspace-draft-confirm" data-draft-confirm hidden aria-label="초안 불러오기 확인"><p>지금 작성 중인 내용을 보관한 초안으로 바꿀까요? 문서 내용은 그대로예요.</p><button type="button" class="workspace-button" data-draft-accept>불러오기</button><button type="button" class="workspace-button" data-draft-cancel>취소</button></section>
+      <div data-writing-library></div>
       <div data-ai-compose>
       <button type="button" data-ai-settings-toggle aria-expanded="false" aria-controls="workspace-ai-settings" hidden>AI 연결 설정</button>
       <section class="workspace-ai-settings" id="workspace-ai-settings" data-ai-settings hidden aria-label="AI 연결 설정">
@@ -108,6 +105,7 @@ export function installWorkspaceAi(wasm: WasmBridge, bus: EventBus, getInput: ()
       <button type="button" class="workspace-button workspace-primary" data-ai-generate disabled>초안 만들기</button>
       <button type="button" class="workspace-button workspace-primary" data-ai-apply hidden disabled>문서에 넣기</button>
       <button type="button" class="workspace-button" data-writing-continue hidden>계속 작성</button><button type="button" class="workspace-button workspace-primary" data-writing-download hidden>파일 저장</button>
+      <button type="button" class="workspace-button workspace-primary" data-writing-library-close hidden>글쓰기로 돌아가기</button>
     </div></footer>`;
   root.append(panel);
   const find = <T extends HTMLElement = HTMLElement>(selector: string) => panel.querySelector<T>(selector)!;
@@ -127,6 +125,7 @@ export function installWorkspaceAi(wasm: WasmBridge, bus: EventBus, getInput: ()
   const reviewText = find<HTMLTextAreaElement>('#workspace-review-text');
   const continueWriting = find<HTMLButtonElement>('[data-writing-continue]');
   const download = find<HTMLButtonElement>('[data-writing-download]');
+  const returnToWriting = find<HTMLButtonElement>('[data-writing-library-close]');
   const modeButtons = [...panel.querySelectorAll<HTMLButtonElement>('[data-ai-mode]')];
   const templateForm = find<HTMLFormElement>('[data-template-form]');
   const methodButtons = [...panel.querySelectorAll<HTMLButtonElement>('[data-writing-method]')];
@@ -141,7 +140,6 @@ export function installWorkspaceAi(wasm: WasmBridge, bus: EventBus, getInput: ()
   let reviewTarget: AiEditTarget | null = null;
   let reviewError = '';
   let loading = false;
-  let savedDraft: WritingDraft | null = null;
   let stale = false;
   let applying = false;
   let request: AbortController | null = null;
@@ -149,6 +147,7 @@ export function installWorkspaceAi(wasm: WasmBridge, bus: EventBus, getInput: ()
   let sheet: ReturnType<typeof workspaceDialog> | null = null;
   let open = !narrow.matches;
   let connectionEpoch = 0;
+  let libraryOpen = false;
 
   const say = (message: string, error = false) => {
     feedback.textContent = message;
@@ -163,21 +162,24 @@ export function installWorkspaceAi(wasm: WasmBridge, bus: EventBus, getInput: ()
     const draft = mode === 'draft';
     const template = draft && method === 'template';
     const direct = !draft && !connection?.configured;
-    generate.disabled = stage !== 'compose' || loading || !target || stale || !!request || (!template && (direct ? !manual.value.trim() : !connection?.configured || !prompt.value.trim() || !consent.checked));
+    generate.disabled = libraryOpen || stage !== 'compose' || loading || !target || stale || !!request || (!template && (direct ? !manual.value.trim() : !connection?.configured || !prompt.value.trim() || !consent.checked));
     generate.textContent = request ? '글을 쓰고 있어요…' : template ? '글 미리보기' : direct ? '다듬은 글 미리보기' : draft ? 'AI로 초안 만들기' : 'AI로 다듬기';
-    generate.hidden = stage !== 'compose';
-    cancel.hidden = !request;
-    apply.hidden = stage !== 'review';
+    generate.hidden = libraryOpen || stage !== 'compose';
+    cancel.hidden = libraryOpen || !request;
+    apply.hidden = libraryOpen || stage !== 'review';
     apply.disabled = loading || !proposal || !reviewTarget || !!reviewError || !!request;
-    discard.hidden = stage !== 'review';
-    continueWriting.hidden = download.hidden = stage !== 'done';
+    discard.hidden = libraryOpen || stage !== 'review';
+    continueWriting.hidden = download.hidden = libraryOpen || stage !== 'done';
+    returnToWriting.hidden = !libraryOpen;
     download.disabled = loading;
-    footerHint.textContent = stage === 'done' ? '현재 문서를 한글 파일로 저장해요.' : stage === 'review' ? reviewError || (!reviewTarget ? '문서의 위치를 다시 확인해 주세요.' : '확인한 글만 문서에 반영해요.') : !target || stale ? targetHint() : '만든 글은 다음 화면에서 고칠 수 있어요.';
-    find('[data-ai-compose]').hidden = stage !== 'compose';
-    preview.hidden = stage !== 'review';
-    find('[data-writing-done]').hidden = stage !== 'done';
+    footerHint.textContent = libraryOpen ? '보관한 초안은 이 브라우저에서 이어 쓸 수 있어요.' : stage === 'done' ? '현재 문서를 한글 파일로 저장해요.' : stage === 'review' ? reviewError || (!reviewTarget ? '문서의 위치를 다시 확인해 주세요.' : '확인한 글만 문서에 반영해요.') : !target || stale ? targetHint() : '만든 글은 다음 화면에서 고칠 수 있어요.';
+    find('[data-ai-compose]').hidden = libraryOpen || stage !== 'compose';
+    preview.hidden = libraryOpen || stage !== 'review';
+    find('[data-writing-done]').hidden = libraryOpen || stage !== 'done';
+    feedback.hidden = libraryOpen;
     find('[data-review-resume]').hidden = !proposal;
     find('[data-review-location]').hidden = !!reviewTarget;
+    if (!reviewTarget) find('[data-ai-explanation]').textContent = '';
     find('[data-ai-original]').hidden = mode === 'draft' || !reviewTarget;
     find('[data-review-rebind]').textContent = target && !stale ? '현재 위치 다시 확인' : '문서에서 위치 고르기';
     for (const step of panel.querySelectorAll<HTMLElement>('[data-writing-step]')) {
@@ -360,10 +362,17 @@ export function installWorkspaceAi(wasm: WasmBridge, bus: EventBus, getInput: ()
   trigger.addEventListener('pointerdown', () => capture());
   trigger.addEventListener('click', () => open ? close() : show());
   find('[data-ai-close]').addEventListener('click', close);
-  find('[data-ai-size]').addEventListener('click', () => {
-    const large = panel.classList.toggle('workspace-writing-large');
+  const setLargeText = (large: boolean) => {
+    panel.classList.toggle('workspace-writing-large', large);
     find('[data-ai-size]').setAttribute('aria-pressed', String(large));
     find('[data-ai-size]').textContent = large ? '기본 글자' : '글자 크게';
+  };
+  try { setLargeText(localStorage.getItem('rhwp.writing-large-text') === 'true'); } catch { /* The default size works without storage. */ }
+  find('[data-ai-size]').addEventListener('click', () => {
+    const large = !panel.classList.contains('workspace-writing-large');
+    setLargeText(large);
+    try { localStorage.setItem('rhwp.writing-large-text', String(large)); }
+    catch { say('글자 크기는 바꿨어요. 브라우저 설정 때문에 다음 방문까지 기억하지 못해요.'); }
   });
   find('[data-ai-settings-toggle]').addEventListener('click', () => {
     const settings = find('[data-ai-settings]'); settings.hidden = !settings.hidden;
@@ -386,45 +395,35 @@ export function installWorkspaceAi(wasm: WasmBridge, bus: EventBus, getInput: ()
       stage = 'review'; refreshReviewText(); preview.focus();
     }
   });
-  find('[data-draft-save]').addEventListener('click', () => {
-    try {
-      saveWritingDraft({ mode, method, templateId, templateValues, prompt: prompt.value, manual: manual.value,
-        ...(proposal ? { preview: { text: proposal.text, source: proposal.source } } : {}) });
-      find('[data-draft-status]').textContent = '초안을 이 브라우저에 보관했어요. 문서 파일 저장은 별도예요.';
-      say('초안을 보관했어요. 다음에 ‘보관한 초안’에서 이어 쓸 수 있어요.');
-    } catch (error) { say((error as Error).message, true); }
+  const writingLibrary = installWritingLibrary(find('[data-writing-library]'), {
+    current: () => ({ mode, method, templateId, templateValues, prompt: prompt.value, manual: manual.value,
+      ...(proposal ? { preview: { text: proposal.text, source: proposal.source } } : {}) }),
+    onOpenChange: isOpen => {
+      libraryOpen = isOpen;
+      if (isOpen && request) { abort(); say('요청을 취소했어요. 작성하던 글은 그대로예요.'); }
+      sync();
+    },
+    restore: restored => {
+      abort(); mode = restored.mode; method = restored.method; templateId = restored.templateId;
+      for (const key of Object.keys(templateValues)) delete templateValues[key as WritingTemplateId];
+      Object.assign(templateValues, restored.templateValues);
+      prompt.value = restored.prompt; manual.value = restored.manual;
+      inputs[mode] = { prompt: restored.prompt, manual: restored.manual, preview: restored.preview };
+      consent.checked = false; target = null; stale = false; clearProposal();
+      renderTemplateFields(); showMode(); capture();
+      if (restored.preview) showPreview(restored.preview.text, restored.preview.source, '', false);
+      else (mode === 'draft' && method === 'template' ? templateForm.querySelector<HTMLInputElement>('input') : mode === 'rewrite' && !connection?.configured ? manual : prompt)?.focus();
+      say('초안을 불러왔어요. 문서 내용은 바뀌지 않았어요.');
+    },
   });
-  find('[data-draft-load]').addEventListener('click', () => {
-    try {
-      savedDraft = loadWritingDraft();
-      if (!savedDraft) { say('아직 보관한 초안이 없어요. 먼저 초안 보관을 눌러 주세요.'); return; }
-      find('[data-draft-confirm]').hidden = false;
-      find('[data-draft-accept]').focus();
-    } catch (error) { say((error as Error).message, true); }
-  });
-  find('[data-draft-cancel]').addEventListener('click', () => {
-    savedDraft = null; find('[data-draft-confirm]').hidden = true; find('[data-draft-load]').focus();
-  });
-  find('[data-draft-accept]').addEventListener('click', () => {
-    if (!savedDraft) return;
-    const restored = savedDraft; savedDraft = null; abort();
-    mode = restored.mode; method = restored.method; templateId = restored.templateId;
-    for (const key of Object.keys(templateValues)) delete templateValues[key as WritingTemplateId];
-    Object.assign(templateValues, restored.templateValues);
-    prompt.value = restored.prompt; manual.value = restored.manual;
-    inputs[mode] = { prompt: restored.prompt, manual: restored.manual, preview: restored.preview };
-    consent.checked = false; target = null; stale = false; clearProposal();
-    find('[data-draft-confirm]').hidden = true; renderTemplateFields(); showMode(); capture();
-    if (restored.preview) showPreview(restored.preview.text, restored.preview.source, '보관한 초안이에요. 현재 문서의 위치를 확인한 뒤 넣어 주세요.', false);
-    else templateForm.querySelector<HTMLInputElement>('input')?.focus();
-    say('초안을 불러왔어요. 문서 내용은 바뀌지 않았어요.');
-  });
+  returnToWriting.addEventListener('click', () => writingLibrary.close());
   for (const button of methodButtons) button.addEventListener('click', () => {
     abort(); method = button.dataset.writingMethod as typeof method; detachReview(); say(''); showMode();
   });
   for (const button of modeButtons) button.addEventListener('click', () => {
     const next = button.dataset.aiMode as keyof typeof inputs;
     if (next === mode) return;
+    writingLibrary.resetActive();
     inputs[mode] = { prompt: prompt.value, manual: manual.value, ...(proposal ? { preview: { ...proposal } } : {}) };
     abort(); mode = next; target = null; stale = false; consent.checked = false;
     prompt.value = inputs[mode].prompt;
@@ -493,7 +492,7 @@ export function installWorkspaceAi(wasm: WasmBridge, bus: EventBus, getInput: ()
     } catch (error) { stale = true; detachReview(); say((error as Error).message, true); }
     finally { applying = false; sync(); }
   });
-  continueWriting.addEventListener('click', () => { clearProposal(); say(''); capture(); if (sheet) close(); else getInput()?.focus(); });
+  continueWriting.addEventListener('click', () => { writingLibrary.resetActive(); clearProposal(); say(''); capture(); if (sheet) close(); else getInput()?.focus(); });
   download.addEventListener('click', () => {
     const save = () => { if (!dispatcher.dispatch('file:save')) showToast({ message: '문서가 준비된 뒤 상단 파일 저장을 눌러 주세요.' }); };
     if (sheet) { sheet.dialog.addEventListener('close', () => requestAnimationFrame(save), { once: true }); close(); }

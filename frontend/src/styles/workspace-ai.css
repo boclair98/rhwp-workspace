@@ -62,13 +62,34 @@
 .workspace-writing-steps { display: flex; list-style: none; padding: 8px 0 12px; margin: 0; gap: 8px; border-bottom: 1px solid var(--ui-border); }
 .workspace-writing-steps li { flex: 1; min-width: 0; font-size: 14px; font-weight: 500; color: var(--ui-text-secondary); padding: 7px 4px; text-align: center; border-radius: 8px; }
 .workspace-writing-steps li[aria-current] { background: var(--ui-accent-bg); color: var(--ui-link); font-weight: 700; }
-.workspace-draft-actions { display: flex; gap: 8px; margin-top: 12px; }
+.workspace-draft-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
 .workspace-draft-tools { margin-bottom: 8px; }
-.workspace-draft-tools summary { min-height: 44px; align-content: center; cursor: pointer; font-size: 14px; font-weight: 600; color: var(--ui-text-secondary); }
-.workspace-draft-actions .workspace-button { min-height: 44px; flex: 1; font-size: 14px; }
-#workspace-ai-panel [data-draft-status] { font-size: 13px; margin: 7px 0 16px; }
+.workspace-draft-tools summary { min-height: 44px; align-content: center; cursor: pointer; font-size: 15px; font-weight: 600; color: var(--ui-text-secondary); }
+.workspace-draft-actions .workspace-button { min-height: 44px; flex: 1 1 115px; font-size: 14px; padding-inline: 9px; }
 .workspace-draft-confirm { border: 1px solid var(--ui-border); border-radius: 12px; padding: 12px; background: var(--ui-surface-muted); }
 .workspace-draft-confirm .workspace-button { min-height: 44px; margin-right: 8px; }
+.workspace-draft-tools[open] { border-bottom: 1px solid var(--ui-border); padding-bottom: 12px; }
+.workspace-draft-tools [data-library-count]:not(:empty) { display: inline-block; min-width: 24px; text-align: center; margin-left: 6px; background: var(--ui-accent-bg); color: var(--ui-link); border-radius: 7px; font-size: 13px; }
+#workspace-ai-panel .workspace-draft-tools input:not([type="file"]) { box-sizing: border-box; width: 100%; min-width: 0; min-height: 46px; border: 1px solid var(--ui-border-strong); border-radius: 10px; padding: 9px 12px; font: 400 16px/1.5 var(--font-family-ui); color: var(--ui-text); background: var(--ui-surface); }
+#workspace-ai-panel .workspace-draft-tools label { font-size: 15px; margin: 12px 0 6px; }
+.workspace-library-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 24px; }
+.workspace-library-heading > span { font-size: 14px; color: var(--ui-text-secondary); }
+.workspace-writing-list { margin: 8px 0; padding: 0; list-style: none; }
+.workspace-writing-list-row { display: flex; align-items: center; gap: 8px; min-width: 0; border-bottom: 1px solid var(--ui-border); }
+.workspace-writing-list-open { flex: 1; min-width: 0; min-height: 72px; text-align: left; padding: 13px 2px; border: 0; background: transparent; color: var(--ui-text); cursor: pointer; font: inherit; word-break: keep-all; overflow-wrap: anywhere; }
+.workspace-writing-list-open strong { display: block; font-size: 16px; font-weight: 600; line-height: 1.5; }
+.workspace-writing-list-open span { display: block; font-size: 13px; color: var(--ui-text-secondary); line-height: 1.5; margin-top: 3px; }
+.workspace-writing-list-open:hover strong { color: var(--ui-link); }
+.workspace-writing-list-delete { flex: 0 0 auto; min-height: 44px; font-size: 14px; }
+.workspace-library-feedback { color: var(--ui-link); font-size: 14px; line-height: 1.6; }
+.workspace-library-feedback:empty { display: none; }
+.workspace-library-feedback.is-error { color: var(--ui-danger); }
+.workspace-library-danger { background: var(--ui-danger) !important; }
+.workspace-draft-confirm h3 { overflow-wrap: anywhere; }
+.workspace-draft-confirm .workspace-draft-actions .workspace-button { margin: 0; }
+.workspace-draft-transfer { margin-top: 12px; }
+#workspace-ai-panel .workspace-library-footnote { font-size: 13px; margin-top: 16px; }
+#workspace-ai-panel.workspace-writing-large .workspace-draft-tools :is(input, .workspace-writing-list-open strong) { font-size: 18px; }
 .workspace-resume { width: 100%; min-height: 44px; margin-top: 12px; color: var(--ui-link); }
 #workspace-ai-panel .workspace-ai-preview { border: 0; padding: 0; }
 #workspace-ai-panel .workspace-review-label { margin: 16px 0 8px; font-size: 16px; }

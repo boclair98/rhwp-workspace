@@ -19,6 +19,7 @@ export interface WritingDraft {
 export interface WritingDraftStorage {
   getItem(key: string): string | null;
   setItem(key: string, value: string): void;
+  removeItem?(key: string): void;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -33,7 +34,7 @@ function isLimitedText(value: unknown, limit: number): value is string {
   return typeof value === 'string' && value.length <= limit * 2 && codePointLength(value) <= limit;
 }
 
-function checkedDraft(value: unknown): WritingDraft {
+export function validateWritingDraft(value: unknown): WritingDraft {
   const invalid = () => new Error('글쓰기 초안 정보를 확인하고 다시 보관해 주세요.');
   if (!isRecord(value) || !hasOnlyKeys(value, ['mode', 'method', 'templateId', 'templateValues', 'prompt', 'manual', 'preview'])) {
     throw invalid();
@@ -86,7 +87,7 @@ function checkedDraft(value: unknown): WritingDraft {
 }
 
 export function saveWritingDraft(draft: WritingDraft, storage?: WritingDraftStorage): void {
-  const value = JSON.stringify({ version: VERSION, draft: checkedDraft(draft) });
+  const value = JSON.stringify({ version: VERSION, draft: validateWritingDraft(draft) });
   if (value.length > MAX_RECORD_LENGTH) {
     throw new Error('보관할 내용이 너무 길어요. 필요 없는 문장을 줄여 주세요.');
   }
@@ -122,7 +123,7 @@ export function loadWritingDraft(storage?: WritingDraftStorage): WritingDraft | 
   }
   if (!hasOnlyKeys(parsed, ['version', 'draft'])) throw corrupted();
   try {
-    return checkedDraft(parsed.draft);
+    return validateWritingDraft(parsed.draft);
   } catch {
     throw corrupted();
   }
