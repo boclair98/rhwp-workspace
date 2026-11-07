@@ -71,6 +71,28 @@ test('초안은 요청만 전송하고 줄바꿈을 보존하며 문서 본문 �
   await assert.rejects(requestDraft({ prompt, consent: false }, { env, fetchImpl: () => assert.fail('No external call expected') }), hasCode('CONSENT_REQUIRED'));
 });
 
+test('양식 초안은 프롬프트 없이 글 종류와 기입 내용만 보내고 잘못된 요청을 거부한다', async () => {
+  const details = `한글 교실 참가 신청\n\n신청 사유\n${'가'.repeat(1050)}`;
+  const input = { template: 'application', details, consent: true };
+  const result = await requestDraft(input, { env, fetchImpl: async (_, options) => {
+    const body = JSON.parse(options.body);
+    assert.deepEqual(JSON.parse(body.input[0].content), { documentType: '신청서', notes: details });
+    assert.equal(body.store, false);
+    return response({ draftText: '한글 교실 참가 신청서\n\n참가를 신청합니다.', explanation: '' });
+  } });
+  assert.match(result.draftText, /한글 교실 참가 신청서/);
+
+  const noCall = { env, fetchImpl: () => assert.fail('No external call expected') };
+  for (const change of [
+    { template: 'unsupported' }, { details: '' }, { details: '가'.repeat(2001) },
+    { details: Array(17).fill('가').join('\n') }, { details: '제목\x00내용' },
+    { prompt: '양식과 함께 보낼 수 없음' }, { text: '문서 본문' },
+  ]) {
+    await assert.rejects(requestDraft({ ...input, ...change }, noCall), hasCode('INVALID_INPUT'));
+  }
+  await assert.rejects(requestDraft({ ...input, consent: false }, noCall), hasCode('CONSENT_REQUIRED'));
+});
+
 test('실제 로컬 HTTP 경로: 상태/성공/Origin·Host·동의·본문 제한·호출 제한', async t => {
   let calls = 0;
   const middleware = createAiMiddleware({ env, fetchImpl: async () => { calls++; return response(); } });

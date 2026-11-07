@@ -1,4 +1,5 @@
 import { AI_TEXT_LIMIT } from './ai-edit';
+import type { WritingTemplateId } from './writing-templates';
 
 export interface AiConnection {
   configured: boolean;
@@ -35,12 +36,17 @@ export async function readAiConnection(signal?: AbortSignal): Promise<AiConnecti
   if (!res.ok || typeof value?.configured !== 'boolean') throw new Error('AI 연결 상태를 읽지 못했어요. 잠시 후 다시 확인해 주세요.');
   return value;
 }
-export async function makeAiWriting(mode: 'draft' | 'rewrite', text: string, prompt: string, consent: boolean, signal: AbortSignal): Promise<{ text: string; explanation: string }> {
+export type AiWritingRequest =
+  | { mode: 'draft'; template: WritingTemplateId; details: string }
+  | { mode: 'draft'; prompt: string }
+  | { mode: 'rewrite'; text: string; prompt: string };
+
+export async function makeAiWriting({ mode, ...input }: AiWritingRequest, signal: AbortSignal): Promise<{ text: string; explanation: string }> {
   let res: Response;
   try {
     res = await fetch(`/api/ai/${mode}`, {
       method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, redirect: 'manual', signal,
-      body: JSON.stringify(mode === 'draft' ? { prompt, consent } : { text, prompt, consent }),
+      body: JSON.stringify({ ...input, consent: true }),
     });
   } catch {
     throw new Error(signal.aborted ? '응답 시간이 지났거나 요청을 취소했어요. 다시 시도해 주세요.' : 'AI 서버에 연결할 수 없어요. 잠시 후 다시 시도해 주세요.');

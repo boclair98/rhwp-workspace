@@ -14,6 +14,7 @@ export interface WritingTemplateField {
 export interface WritingTemplate {
   readonly id: WritingTemplateId;
   readonly label: string;
+  readonly hint: string;
   readonly fields: readonly WritingTemplateField[];
 }
 
@@ -21,39 +22,43 @@ export const WRITING_TEMPLATES: readonly WritingTemplate[] = [
   {
     id: 'notice',
     label: '안내문',
+    hint: '알릴 일이 있을 때',
     fields: [
       { id: 'title', label: '제목', placeholder: '예: 도서관 휴관 안내', required: true, maxLength: 80 },
-      { id: 'body', label: '알릴 내용', placeholder: '예: 이번 주 금요일에 도서관 문을 닫습니다.', required: true, maxLength: 1200, multiline: true },
+      { id: 'body', label: '알릴 내용', placeholder: '예: 금요일 휴관, 토요일 오전 9시에 다시 열어요.', required: true, maxLength: 1200, multiline: true },
       { id: 'audience', label: '안내 대상', placeholder: '예: 도서관 이용자', required: false, maxLength: 80 },
       { id: 'contact', label: '문의할 곳', placeholder: '예: 도서관 안내 데스크', required: false, maxLength: 100 },
     ],
   },
   {
-    id: 'letter',
-    label: '편지',
-    fields: [
-      { id: 'recipient', label: '받는 분', placeholder: '예: 할머니', required: true, maxLength: 80 },
-      { id: 'body', label: '전할 말', placeholder: '예: 지난번에 챙겨 주신 반찬을 맛있게 먹었어요.', required: true, maxLength: 1200, multiline: true },
-      { id: 'sender', label: '보낸 분', placeholder: '예: 지우', required: false, maxLength: 80 },
-    ],
-  },
-  {
     id: 'application',
-    label: '신청 사유',
+    label: '신청서',
+    hint: '참가나 도움을 신청할 때',
     fields: [
       { id: 'subject', label: '신청하는 일', placeholder: '예: 한글 교실 참가 신청', required: true, maxLength: 100 },
-      { id: 'reason', label: '신청 이유', placeholder: '예: 혼자서 안내문과 편지를 쓰고 싶습니다.', required: true, maxLength: 1200, multiline: true },
-      { id: 'applicant', label: '신청하는 분', placeholder: '예: 김지우', required: false, maxLength: 80 },
+      { id: 'reason', label: '신청 이유', placeholder: '예: 혼자서 안내문과 편지를 쓰고 싶어요.', required: true, maxLength: 1200, multiline: true },
+      { id: 'applicant', label: '신청인 이름', placeholder: '예: 김지우', required: false, maxLength: 80 },
     ],
   },
   {
     id: 'meeting',
     label: '모임 공지',
+    hint: '날짜와 장소를 알릴 때',
     fields: [
       { id: 'name', label: '모임 이름', placeholder: '예: 주말 독서 모임', required: true, maxLength: 80 },
       { id: 'date', label: '날짜와 시간', placeholder: '예: 12월 7일 오후 2시', required: true, maxLength: 100 },
       { id: 'place', label: '만나는 곳', placeholder: '예: 주민센터 2층', required: true, maxLength: 100 },
       { id: 'details', label: '더 알릴 내용', placeholder: '예: 읽고 싶은 책을 한 권 가져오세요.', required: false, maxLength: 1000, multiline: true },
+    ],
+  },
+  {
+    id: 'letter',
+    label: '편지',
+    hint: '안부와 마음을 전할 때',
+    fields: [
+      { id: 'recipient', label: '받는 분', placeholder: '예: 할머니', required: true, maxLength: 80 },
+      { id: 'body', label: '전할 말', placeholder: '예: 지난번에 보내 주신 반찬이 맛있었어요.', required: true, maxLength: 1200, multiline: true },
+      { id: 'sender', label: '보낸 분', placeholder: '예: 지우', required: false, maxLength: 80 },
     ],
   },
 ];
