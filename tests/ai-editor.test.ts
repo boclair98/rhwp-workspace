@@ -163,3 +163,35 @@ test('본문과 캐럿이 같아도 새로 연 문서에 이전 위치를 적용
     } finally { current.release(); }
   } finally { h.release(); }
 });
+
+
+test('AI 자동 작성은 커서가 옮겨져도 요청 위치에 문단을 분리해 넣고 저장·되돌리기를 보존한다', () => {
+  const doc = HwpDocument.createEmpty(); doc.createBlankDocument();
+  doc.insertText(0, 0, 0, '앞말뒷말');
+  const h = harness(doc, null);
+  try {
+    h.input.getCursorPosition = () => p(2);
+    const target = h.editor.captureDraft();
+    h.input.getCursorPosition = () => p(4);
+    h.editor.applyDraft(target, '새 글\n두 번째 줄', true);
+    const read = (d: HwpDocument) => Array.from({ length: 6 }, (_, n) => d.getTextRange(0, n, 0, 100));
+    assert.deepEqual(read(doc), ['앞말', '', '새 글', '두 번째 줄', '', '뒷말']);
+    const saved = new HwpDocument(doc.exportHwp());
+    try { assert.deepEqual(read(saved), read(doc)); } finally { saved.free(); }
+    h.undo(); assert.equal(doc.getTextRange(0, 0, 0, 100), '앞말뒷말');
+    h.redo(); assert.equal(doc.getTextRange(0, 2, 0, 100), '새 글');
+  } finally { h.release(); }
+});
+
+test('64줄 AI 글도 HWP 왕복 후 줄과 내용이 보존된다', () => {
+  const doc = HwpDocument.createEmpty(); doc.createBlankDocument();
+  const h = harness(doc, null);
+  try {
+    const lines = Array.from({ length: 64 }, (_, n) => `${n + 1}번째 안내`);
+    h.editor.applyDraft(h.editor.captureDraft(), lines.join('\n'), true);
+    const saved = new HwpDocument(doc.exportHwp());
+    try { for (let n = 0; n < lines.length; n++) assert.equal(saved.getTextRange(0, n, 0, 100), lines[n]); }
+    finally { saved.free(); }
+    h.undo(); assert.equal(doc.getTextRange(0, 0, 0, 100), '');
+  } finally { h.release(); }
+});

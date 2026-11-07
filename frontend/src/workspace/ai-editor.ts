@@ -95,14 +95,16 @@ export class AiEditor {
     }
   }
 
-  applyDraft(target: AiEditTarget, proposed: string): void {
+  applyDraft(target: AiEditTarget, proposed: string, separateParagraphs = false): void {
     const input = this.editableInput();
     this.assertCurrent(target);
-    const lines = validateDraft(proposed).split('\n');
+    let text = validateDraft(proposed);
     const { sectionIndex, paragraphIndex, charOffset } = target.start;
     const original = [...target.paragraphText];
     const prefix = original.slice(0, charOffset).join('');
     const suffix = original.slice(charOffset).join('');
+    if (separateParagraphs) text = (prefix.trim() ? '\n\n' : '') + text + (suffix.trim() ? '\n\n' : '');
+    const lines = text.split('\n');
     let ran = false;
     input.executeOperation({
       kind: 'snapshot',

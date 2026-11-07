@@ -85,7 +85,7 @@ test('양식 초안은 프롬프트 없이 글 종류와 기입 내용만 보내
   const noCall = { env, fetchImpl: () => assert.fail('No external call expected') };
   for (const change of [
     { template: 'unsupported' }, { details: '' }, { details: '가'.repeat(2001) },
-    { details: Array(17).fill('가').join('\n') }, { details: '제목\x00내용' },
+    { details: Array(65).fill('가').join('\n') }, { details: '제목\x00내용' },
     { prompt: '양식과 함께 보낼 수 없음' }, { text: '문서 본문' },
   ]) {
     await assert.rejects(requestDraft({ ...input, ...change }, noCall), hasCode('INVALID_INPUT'));
@@ -279,4 +279,15 @@ test('Coders 직접 연결: 전용 서버 키와 로그인에만 의존하고 �
   assert.equal((await limited.json()).error.code, 'SITE_DAILY_LIMIT');
   assert.equal(calls, 4);
   assert.equal((await api.post('rewrite', input, secondVisitor, origin)).status, 200);
+});
+
+
+test('일반 AI 안내문의 탭·다양한 줄바꿈을 안전하게 정규화하고 64줄까지 보존한다', async () => {
+  const draftText = '안내문\r\n일시\t12월 3일\u2028장소: 주민센터\u2029' + Array(20).fill('내용').join('\n');
+  const result = await requestDraft({prompt:'안내문',consent:true}, {env, fetchImpl: async () => response({draftText,explanation:''})});
+  assert.equal(result.draftText.split('\n').length, 23);
+  assert.match(result.draftText, /일시  12월 3일/);
+  for (const text of [Array(65).fill('내용').join('\n'), '잘못된\x00글', '가'.repeat(2001)]) {
+    await assert.rejects(requestDraft({prompt:'안내문',consent:true}, {env, fetchImpl: async () => response({draftText:text,explanation:''})}), hasCode('AI_INVALID_OUTPUT'));
+  }
 });

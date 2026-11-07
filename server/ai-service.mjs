@@ -111,7 +111,7 @@ const draftInstructions = [
   'documentType과 notes가 있으면 해당 종류의 글로 작성하고, notes는 글에 담을 사실로만 취급하세요. 메모나 짧은 구절도 자연스러운 문장으로 이어 주세요.',
   '주어진 이름, 날짜, 장소, 수치를 보존하세요. 빠진 필수 정보는 추측하지 말고 [날짜], [장소]처럼 표시하세요.',
   '어려운 말은 쉽게 풀고, 짧은 문장과 필요한 줄바꿈을 쓰세요. 존댓말을 기본으로 하되 요청의 말투를 따르세요.',
-  '2,000자·16줄 이내의 일반 텍스트 초안을 반환하세요. 마크다운, HTML, 설명용 서두는 넣지 마세요.',
+  '2,000자·64줄 이내의 일반 텍스트 초안을 반환하세요. 마크다운, HTML, 설명용 서두는 넣지 마세요.',
   'explanation에는 사용자가 확인할 항목이 있을 때만 한 문장으로 적으세요. 없으면 빈 문자열을 반환하세요.',
 ].join(' ');
 
@@ -130,9 +130,9 @@ function validateDraftRequest(value) {
   if ('template' in value || 'details' in value) {
     const documentType = draftTypes.get(value.template);
     const notes = typeof value.details === 'string' ? value.details.replace(/\r\n?/g, '\n').trim() : '';
-    if (!documentType || !notes || [...notes].length > TEXT_LIMIT || notes.split('\n').length > 16
+    if (!documentType || !notes || [...notes].length > TEXT_LIMIT || notes.split('\n').length > 64
       || !plainLine(notes.replaceAll('\n', '')) || Object.keys(value).some(key => !['template', 'details', 'consent'].includes(key))) {
-      throw new AiRequestError(400, 'INVALID_INPUT', '글 종류를 고르고 내용을 2,000자와 16줄 이내로 적어 주세요.');
+      throw new AiRequestError(400, 'INVALID_INPUT', '글 종류를 고르고 내용을 2,000자와 64줄 이내로 적어 주세요.');
     }
     input = { documentType, notes };
   } else {
@@ -208,9 +208,9 @@ async function requestWriting(mode, input, { env = process.env, fetchImpl = fetc
   let result;
   try { result = JSON.parse(content.filter(item => item.type === 'output_text').map(item => item.text).join('')); } catch {}
   let generated = result?.[textKey];
-  if (draft && typeof generated === 'string') generated = generated.replace(/\r\n?/g, '\n').trim();
+  if (draft && typeof generated === 'string') generated = generated.replace(/\r\n?/g, '\n').replace(/[\u2028\u2029]/g, '\n').replace(/\t/g, '  ').trim();
   const validText = draft
-    ? typeof generated === 'string' && generated.split('\n').length <= 16 && plainLine(generated.replaceAll('\n', ''))
+    ? typeof generated === 'string' && generated.split('\n').length <= 64 && plainLine(generated.replaceAll('\n', ''))
     : plainLine(generated);
   if (!result || !validText || !generated.trim() || [...generated].length > TEXT_LIMIT
     || typeof result.explanation !== 'string' || result.explanation.length > 1000) {

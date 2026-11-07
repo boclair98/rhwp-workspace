@@ -30,7 +30,7 @@ test('필수 항목 누락, 한 줄에 들어간 줄바꿈, 과대 입력을 차
   assert.throws(() => renderWritingTemplate('letter', { recipient: '가'.repeat(81), body: '편지' }), /받는 분.*80자/);
 });
 
-test('기존 초안 검증을 거쳐 제어 문자와 16줄을 넘는 결과를 차단한다', () => {
+test('기존 초안 검증을 거쳐 제어 문자와 64줄을 넘는 결과를 차단한다', () => {
   assert.throws(() => renderWritingTemplate('notice', { title: '안내', body: '첫 문장\u0000둘째 문장' }), /일반 글자/);
-  assert.throws(() => renderWritingTemplate('notice', { title: '안내', body: Array(15).fill('한 줄').join('\n') }), /16줄/);
+  assert.throws(() => renderWritingTemplate('notice', { title: '안내', body: Array(63).fill('한 줄').join('\n') }), /64줄/);
 });

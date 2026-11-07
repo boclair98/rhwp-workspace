@@ -56,8 +56,8 @@ export function validateRevision(original: string, proposed: string): string {
 export function validateDraft(proposed: string): string {
   const text = proposed.replace(/\r\n?/g, '\n');
   if (!text.trim()) throw new Error('문서에 넣을 글을 입력해 주세요.');
-  if (codePointLength(text) > AI_TEXT_LIMIT || text.split('\n').length > 16) {
-    throw new Error('글을 2,000자와 16줄 이내로 줄여 주세요.');
+  if (codePointLength(text) > AI_TEXT_LIMIT || text.split('\n').length > 64) {
+    throw new Error('글을 2,000자와 64줄 이내로 줄여 주세요.');
   }
   if (controlText.test(text.replaceAll('\n', ''))) throw new Error('일반 글자로 입력해 주세요.');
   return text;

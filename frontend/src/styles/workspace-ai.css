@@ -323,3 +323,16 @@
   .workspace-ai-sheet .workspace-ai-footer { padding-block: 8px; }
   .workspace-ai-sheet .workspace-ai-footer p { line-height: 1.35; margin-bottom: 5px; }
 }
+
+/* A text field owns the visible caret while the canvas retains its edit destination. */
+body:has(#workspace-ai-panel :focus) #editor-area .caret,
+body:has(.workspace-ai-sheet[open]) #editor-area .caret { visibility: hidden !important; }
+#workspace-ai-panel .workspace-ai-auto { display: flex; align-items: center; gap: 10px; min-height: 44px; margin-top: 8px; font-size: 14px; font-weight: 500; cursor: pointer; }
+.workspace-ai-auto input { width: 20px; height: 20px; flex: 0 0 auto; accent-color: var(--ui-link); }
+.workspace-ai-receipt { padding: 14px; border: 1px solid var(--ui-border); border-radius: 12px; background: var(--ui-surface-muted); }
+.workspace-ai-receipt strong { color: var(--ui-link); font-size: 16px; }
+.workspace-ai-receipt p { font-size: 14px; }
+.workspace-ai-receipt [data-ai-receipt-text] { white-space: pre-wrap; max-height: 200px; overflow: auto; }
+.workspace-ai-receipt summary { min-height: 44px; align-content: center; cursor: pointer; font-size: 14px; }
+.workspace-ai-receipt-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.workspace-ai-receipt-actions button { flex: 1 1 auto; min-height: 44px; font-size: 14px; }
