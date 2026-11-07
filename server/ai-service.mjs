@@ -163,8 +163,12 @@ async function requestWriting(mode, input, { env = process.env, fetchImpl = fetc
 
 function send(res, status, value) {
   if (res.destroyed || res.writableEnded) return;
-  res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' });
-  res.end(JSON.stringify(value));
+  const body = JSON.stringify(value);
+  res.writeHead(status, {
+    'Content-Type': 'application/json; charset=utf-8', 'Content-Length': Buffer.byteLength(body),
+    'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff',
+  });
+  res.end(body);
 }
 
 export function createAiMiddleware({ env = process.env, fetchImpl = fetch } = {}) {
@@ -174,6 +178,11 @@ export function createAiMiddleware({ env = process.env, fetchImpl = fetch } = {}
   return async function aiMiddleware(req, res, next) {
     const pathname = (req.url || '').split('?')[0];
     if (!pathname.startsWith('/api/ai/')) { next(); return; }
+    const writingRequest = managed && req.method === 'POST' && ['/api/ai/rewrite', '/api/ai/draft'].includes(pathname);
+    const started = Date.now();
+    const report = (status, code) => {
+      if (writingRequest) console.info(`[ai] ${pathname} ${status} ${code} ${Date.now() - started}ms`);
+    };
     try {
       const statusRequest = pathname === '/api/ai/status' && req.method === 'GET';
       const visitor = managed ? codersVisitor(req.headers['x-coders-user']) : null;
@@ -237,6 +246,7 @@ export function createAiMiddleware({ env = process.env, fetchImpl = fetch } = {}
         const generate = pathname === '/api/ai/draft' ? requestDraft : requestRewrite;
         const result = await generate(value, { env, fetchImpl, signal: controller.signal, visitor });
         send(res, 200, result);
+        report(200, 'OK');
       } finally {
         activeVisitors.delete(identity);
         clearTimeout(timeout);
@@ -245,7 +255,10 @@ export function createAiMiddleware({ env = process.env, fetchImpl = fetch } = {}
       }
     } catch (error) {
       const known = error instanceof AiRequestError;
-      send(res, known ? error.status : 500, { error: { code: known ? error.code : 'INTERNAL_ERROR', message: known ? error.message : '요청을 처리하지 못했어요. 다시 시도해 주세요.' } });
+      const status = known ? error.status : 500;
+      const code = known ? error.code : 'INTERNAL_ERROR';
+      send(res, status, { error: { code, message: known ? error.message : '요청을 처리하지 못했어요. 다시 시도해 주세요.' } });
+      report(status, code);
     }
   };
 }
