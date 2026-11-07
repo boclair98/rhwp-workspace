@@ -7,6 +7,7 @@ export interface AiConnection {
   model: string | null;
   maxTextLength: number;
   deployment?: 'coders';
+  usage?: 'site';
 }
 
 export function isCodersSite(): boolean {

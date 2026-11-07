@@ -325,7 +325,8 @@ export function installWorkspaceAi(wasm: WasmBridge, bus: EventBus, getInput: ()
         : errorMessage || '지금 AI에 연결할 수 없어요. 잠시 후 다시 확인해 주세요.';
     panel.classList.toggle('workspace-ai-ready', configured);
     find('[data-ai-api-hint]').textContent = configured
-      ? managed ? '코더스 이용 한도에서 처리돼요. 날짜, 장소, 이름은 미리보기에서 확인해 주세요.' : '날짜, 장소, 이름은 미리보기에서 확인해 주세요.'
+      ? status?.usage === 'site' ? '하루 이용 횟수가 정해져 있어요. 날짜, 장소, 이름은 미리보기에서 확인해 주세요.'
+        : managed ? '코더스 이용 한도에서 처리돼요. 날짜, 장소, 이름은 미리보기에서 확인해 주세요.' : '날짜, 장소, 이름은 미리보기에서 확인해 주세요.'
       : managed ? '' : errorMessage || '아직 AI가 연결되지 않았어요. 새 글은 양식으로 쓰고, 문장은 직접 고쳐 넣을 수 있어요.';
     if (!configured) consent.checked = false;
     find('[data-ai-consent-wrap]').hidden = !configured;

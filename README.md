@@ -26,7 +26,7 @@ v0.5에서 보관한 글은 같은 주소에서 **이전에 보관한 초안**�
 - **문장 다듬기:** 본문이나 표 셀에서 문장을 선택한 뒤 **문장 다듬기**를 열고 원하는 변경을 적습니다.
 - 로그인이 필요하면 **코더스 로그인**을 눌러 새 탭에서 로그인하고 편집기로 돌아옵니다. 입력란이 보이지 않으면 **로그인 확인**을 누릅니다. 전송에 동의하고 생성한 뒤 **글 확인 → 문서에 넣기**로 적용합니다.
 
-AI는 로그인한 방문자의 코더스 이용 한도에서 처리됩니다. 키를 입력할 필요가 없습니다. 전송에 동의한 요청에서 새 글은 요청 문구만, 문장 다듬기는 선택 문장과 요청 문구만 코더스를 거쳐 OpenAI에 보냅니다. 문서 파일, 나머지 본문, 보관함은 이 경로로 전송되지 않습니다. 양식·직접 쓰기·편집·저장은 브라우저에서 처리합니다. [코더스 관리형 AI 안내](https://coders.kr/managed-ai.txt)
+방문자가 API 키를 입력할 필요는 없습니다. 기본 운영 모드에서는 코더스 관리형 AI가 로그인한 방문자의 이용 한도를 적용합니다. 전송에 동의한 요청에서 새 글은 요청 문구만, 문장 다듬기는 선택 문장과 요청 문구만 코더스를 거쳐 OpenAI에 보냅니다. 문서 파일, 나머지 본문, 보관함은 이 경로로 전송되지 않습니다. 양식·직접 쓰기·편집·저장은 브라우저에서 처리합니다. [코더스 관리형 AI 안내](https://coders.kr/managed-ai.txt)
 
 실행은 아래 `npm run dev` 또는 빌드 후 `npm start`를 사용합니다. 기본 주소는 http://127.0.0.1:7720 입니다. 다른 포트는 PowerShell에서 `$env:PORT='7722'; npm start`로 지정할 수 있습니다.
 
@@ -42,7 +42,7 @@ AI는 로그인한 방문자의 코더스 이용 한도에서 처리됩니다. �
 
 모델 ID 예시는 `.env.example`에 있습니다. API 상태는 `GET /api/ai/status`, 초안 생성은 `POST /api/ai/draft`, 문장 다듬기는 `POST /api/ai/rewrite`입니다. 공급자 요청은 저장 옵션을 `false`로 설정하고 구조화 출력을 사용합니다. [OpenAI Responses API](https://developers.openai.com/api/docs/guides/migrate-to-responses) · [구조화 출력](https://developers.openai.com/api/docs/guides/structured-outputs)
 
-개인 키를 사용하는 서버는 루프백 주소에서 같은 출처의 요청만 처리합니다. 운영의 관리형 모드는 코더스 게이트가 확인한 사용자와 운영 출처가 모두 있어야 생성 요청을 처리하며, 관리형 인증 정보가 없으면 개인 키로 우회하지 않습니다. 두 모드 모두 요청 크기와 길이, 사용자당 동시 1건·분당 6건, 45초 제한을 적용합니다. `vite preview`에는 API 처리가 없으므로 `npm run dev` 또는 `npm start`를 사용하세요.
+개인용 로컬 키를 사용하는 서버는 루프백 주소에서 같은 출처의 요청만 처리합니다. 운영 AI는 코더스 게이트가 확인한 사용자와 운영 출처가 모두 있어야 생성 요청을 처리합니다. 관리형 인증에 문제가 있어도 로컬 키로 자동 전환하지 않습니다. 모든 모드에서 요청 크기와 길이, 사용자당 동시 1건·분당 6건, 45초 제한을 적용합니다. `vite preview`에는 API 처리가 없으므로 `npm run dev` 또는 `npm start`를 사용하세요.
 
 글쓰기 도우미의 코드와 테스트 경로는 아래 기술 구조에 정리했습니다. [글쓰기 도우미 검증 기록](AI_PANEL_CHECKS.md).
 
@@ -148,7 +148,7 @@ frontend/src/workspace/writing-templates.ts 외부 전송 없는 글쓰기 양�
 frontend/src/workspace/writing-draft-store.ts 초안 보관 형식·검증
 frontend/src/workspace/writing-draft-library.ts 초안 목록·이전·백업
 frontend/src/workspace/ai-editor.ts 문서 적용·범위 검증·Undo 연결
-server/ai-service.mjs   개인용 로컬 및 코더스 관리형 글쓰기 API
+server/ai-service.mjs   개인용 로컬 및 코더스 운영 글쓰기 API
 frontend/src/styles/workspace.css  오픈소스 한글 디자인 토큰/반응형
 frontend/src/workspace/ 문서 보관·백업 형식·이력 이전·대화상자
 tests/library.test.ts   백업 검증·중복·저장 실패 원자성 테스트
@@ -194,13 +194,14 @@ npm start
 | CODERS_AI_ORIGIN | 운영 편집기 출처 | 운영 AI 사용 시 | `coders.yaml`의 운영 HTTPS 주소 |
 | CODERS_AI_BASE_URL | 관리형 Responses API 기본 경로 | 운영 AI 사용 시 | 코더스가 `coders.yaml`의 AI 리소스에서 서버로 주입 |
 | CODERS_AI_TOKEN | 관리형 AI 프로젝트 인증 | 운영 AI 사용 시 | 코더스가 AI 리소스에서 서버로만 주입 |
+| CODERS_OPENAI_API_KEY | 운영 서버의 OpenAI 직접 연결용 키 | 직접 연결 선택 시 | 코더스 프로젝트의 서버 비밀 환경 변수에만 등록 |
 | CODERS_AGENT_TOKEN | 수동 배포 API 클라이언트의 인증에만 사용 | 수동 API 호출 시 | 코더스 에이전트 승인으로 발급, 애플리케이션 런타임에 주입하지 않음 |
 
 문서 편집·보관에는 API 키와 서버 데이터베이스가 필요하지 않습니다. 코더스 로그인은 플랫폼이 처리합니다. 내 문서는 브라우저 IndexedDB를 사용합니다. 오픈소스 한글 백업 파일과 이전 RHWP 복구본을 가져오는 마이그레이션은 위 절차를 참고하세요.
 
 ## 검증
 
-- v0.7.0 자동 테스트 65개와 TypeScript/Vite 빌드가 통과했습니다. 관리형 글쓰기·문장 다듬기 HTTP 경로, 로그인·출처·동의 확인, 사용자별 한도, 개인 키 격리를 검사합니다.
+- v0.7.0 자동 테스트 66개와 TypeScript/Vite 빌드가 통과했습니다. 운영 글쓰기·문장 다듬기 HTTP 경로, 로그인·출처·동의 확인, 사용자별 한도, 키와 방문자 식별자 격리를 검사합니다.
 - v0.6.0에서 자동 테스트 61개와 TypeScript/Vite 빌드가 통과했습니다. 추가한 10개 테스트는 이전 버전의 초안 이전, 동명 보관, 최신 수정 확인, 백업 왕복, 중복, 손상·한도·저장 실패 시 데이터 보존을 검사합니다.
 - v0.5.0에서 `npm run build`의 TypeScript 검사와 Vite 프로덕션 빌드가 통과했습니다. `npm test`는 기존 42개, 문서 적용 위치 검증 3개, 초안 보관 검증 6개로 총 51개가 통과했습니다.
 - 로컬 브라우저에서 새 글 반영→HWP 다운로드의 4개 조건, HWP 재열기→선택 문장 수정→다운로드의 4개 조건, 모바일 기존 HWP 문서에 글 추가의 5개 조건을 확인했습니다.
@@ -218,6 +219,8 @@ npm start
 배포 전에 [현재 에이전트 문서](https://coders.kr/llms.txt)와 [런타임 계약](https://github.com/coders-kr/template-coders/blob/main/PLATFORM.md)을 확인합니다. 이 프로젝트는 기존 TypeScript/Vite와 Node 정적 서버를 유지합니다. `coders.yaml`의 `mode: native`, 공개 서비스 `web`, 컨테이너 포트 `8080`을 사용합니다. 플랫폼이 주입하는 `PORT`에 바인딩하고 `HOST=0.0.0.0`으로 실행합니다. `/healthz`가 상태 확인 경로입니다.
 
 Dockerfile은 `npm ci` → production build → Node 비루트 사용자 실행의 2단계 구성입니다. `.env*`, `.coders`, 테스트 문서는 빌드 문맥에서 제외됩니다. `coders.yaml`에 선언한 `ai` 리소스가 `gpt-4.1-mini`를 허용하고 프로젝트 인증 정보를 서버에 주입합니다. 개인 `OPENAI_API_KEY`는 운영 환경에 등록하지 않습니다. 서버 데이터베이스와 별도 데이터 마이그레이션 명령은 필요하지 않습니다. 브라우저 IndexedDB는 앱이 필요한 저장소 버전으로 업그레이드하며, 다른 도메인으로 문서를 옮기는 절차는 위 백업 안내를 따릅니다.
+
+**직접 연결을 선택하는 경우:** 운영자가 프로젝트의 서버 비밀 환경 변수 `CODERS_OPENAI_API_KEY`를 별도로 설정하면 OpenAI API에 직접 연결하고 해당 OpenAI 프로젝트에 비용이 청구됩니다. 코더스 로그인과 전송 동의는 여전히 필요합니다. 인스턴스당 한국 시간 기준 하루 24회, 사용자당 4회이며 인스턴스가 교체되면 횟수가 초기화될 수 있습니다. 따라서 이 한도는 계정 전체의 청구 한도가 아닙니다. 코더스 방문자 식별자는 OpenAI로 전달하지 않습니다. 관리형으로 돌아갈 때는 이 비밀 변수를 제거하고 다시 배포합니다.
 
 1. `npm test`, `npm run build`와 로컬 핵심 문서 흐름을 확인합니다. `.env`, `.coders/`, 문서 업로드, 테스트 결과와 인증 정보가 Git에 포함되지 않았는지 확인합니다.
 2. canonical 저장소의 실제 기본 브랜치 `main`에 커밋·푸시합니다.

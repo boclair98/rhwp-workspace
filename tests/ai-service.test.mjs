@@ -228,3 +228,33 @@ test('Coders: 한도는 사용자별로 적용하며 공급자 오류의 원문�
   assert.equal(body.error.code, 'AI_LIMIT');
   assert.equal(body.error.message.includes(managedEnv.CODERS_AI_TOKEN), false);
 });
+
+test('Coders 직접 연결: 전용 서버 키와 로그인에만 의존하고 식별자·키 노출 없이 하루 호출을 제한한다', async t => {
+  const siteKey = 'site-test-secret';
+  let calls = 0;
+  const api = await nativeTestServer(t, async (url, options) => {
+    calls++;
+    assert.equal(url, 'https://api.openai.com/v1/responses');
+    assert.equal(options.headers.Authorization, `Bearer ${siteKey}`);
+    assert.equal(options.headers['X-Coders-User'], undefined);
+    assert.equal(JSON.parse(options.body).store, false);
+    assert.equal(JSON.parse(options.body).max_output_tokens, 2048);
+    return response();
+  }, { ...managedEnv, CODERS_OPENAI_API_KEY: siteKey });
+  assert.equal((await (await api.status()).json()).configured, false);
+  const status = await (await api.status(firstVisitor)).json();
+  assert.equal(status.configured, true);
+  assert.equal(status.usage, 'site');
+  assert.equal(JSON.stringify(status).includes(siteKey), false);
+  const origin = { Origin: managedEnv.CODERS_AI_ORIGIN };
+  assert.equal((await api.post('rewrite', input, null, origin)).status, 401);
+  assert.equal((await api.post('rewrite', input, firstVisitor, { Origin: 'https://foreign.example' })).status, 403);
+  assert.equal((await api.post('rewrite', { ...input, consent: false }, firstVisitor, origin)).status, 400);
+  assert.equal(calls, 0);
+  for (let i = 0; i < 4; i++) assert.equal((await api.post('rewrite', input, firstVisitor, origin)).status, 200);
+  const limited = await api.post('rewrite', input, firstVisitor, origin);
+  assert.equal(limited.status, 429);
+  assert.equal((await limited.json()).error.code, 'SITE_DAILY_LIMIT');
+  assert.equal(calls, 4);
+  assert.equal((await api.post('rewrite', input, secondVisitor, origin)).status, 200);
+});
