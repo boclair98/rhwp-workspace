@@ -40,11 +40,11 @@ v0.5에서 보관한 글은 같은 주소에서 **이전에 보관한 초안**�
 
 RHWP 오픈소스를 바탕으로 만든 독립 HWP/HWPX 문서 편집기입니다. 한컴의 공식 제품이나 제휴 서비스가 아닙니다. 이전 이름 ‘글결’의 문서와 백업을 그대로 읽습니다. 파일을 브라우저에서 열고 수정하여 내려받습니다.
 
-**v0.5.0 운영 중 · `ready` (2026-11-06 검증).** [오픈소스 한글 열기](https://rhwp-workspace.coders.kr). 운영에서 작성 → 미리보기 직접 수정 → 초안 보관 → 새로고침/복원 → 위치 재확인 → 문서 반영 → HWP 저장을 확인했습니다. 내려받은 파일의 1쪽·제목·본문 두 문장 검증을 통과했습니다. API 키는 포함하지 않았으며 공개 AI 상태는 `local_only`로 비활성입니다.
+**v0.6.0 운영 중 · `ready` (2026-11-07 검증).** 운영 주소에서 이전 초안 확인, 로컬 백업 가져오기, 위치 확인 후 문서 반영, HWP 저장과 재열기를 검증했습니다. 공개 AI 상태는 `local_only`입니다. [오픈소스 한글 열기](https://rhwp-workspace.coders.kr)
 
-v0.6.0은 이름별 초안 보관과 백업을 추가한 배포 준비 버전입니다.
+![v0.6 운영에서 재열기한 HWP와 초안 보관함](screenshots/writing-v060-desktop.jpg)
 
-![v0.5 운영 화면의 직접 고치는 글 미리보기](screenshots/writing-v050-desktop.png)
+[v0.6 모바일 초안 보관함](screenshots/writing-v060-mobile.jpg) · [v0.5 미리보기 편집 화면](screenshots/writing-v050-desktop.png)
 
 [v0.5 모바일 글 확인 화면](screenshots/writing-v050-mobile.png) · [v0.4 편집 화면](screenshots/writing-v040-desktop.png)
 
