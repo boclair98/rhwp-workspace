@@ -53,7 +53,8 @@ export async function makeAiWriting(mode: 'draft' | 'rewrite', text: string, pro
     throw new Error('서버 응답을 읽지 못했어요. 잠시 후 다시 시도해 주세요.');
   }
   if (!res.ok) {
-    const message = typeof value?.error?.message === 'string' ? value.error.message : '글을 만들지 못했어요. 다시 시도해 주세요.';
+    const message = typeof value?.error?.message === 'string' ? value.error.message
+      : res.status >= 500 ? 'AI에 연결할 수 없어요. 잠시 후 다시 시도해 주세요.' : '글을 만들지 못했어요. 다시 시도해 주세요.';
     if (value?.error?.code === 'LOGIN_REQUIRED') throw new AiAccessError(message);
     throw new Error(message);
   }

@@ -44,6 +44,24 @@ function codersVisitor(header) {
   return typeof header === 'string' && CODERS_USER_PATTERN.test(header) ? header.toLowerCase() : null;
 }
 
+async function reportManagedFailure(reply, endpoint) {
+  // Never log the upstream response: it may contain a key fragment or request data.
+  const upstreamHost = new URL(endpoint).hostname;
+  const source = upstreamHost.endsWith('.svc.cluster.local') ? 'cluster'
+    : upstreamHost.endsWith('.coders.kr') || upstreamHost === 'coders.kr' ? 'coders' : 'other';
+  const mime = reply.headers.get('content-type') || '';
+  const raw = (await reply.text().catch(() => '')).slice(0, 4096).toLowerCase();
+  const signature = /model[_ -](?:not[_ -](?:found|allowed|enabled)|access)|model[^"\n]{0,50}(?:not allowed|not supported)/.test(raw) ? 'model_access'
+    : /insufficient_quota|quota exceeded|rate_limit_exceeded|exhausted|insufficient balance/.test(raw) ? 'quota'
+      : /invalid_api_key|incorrect api key|provider api key|openai[_ ]api[_ ]key/.test(raw) ? 'provider_key'
+        : /tenant token|project token|invalid token|invalid bearer|invalid credentials|invalid authorization|missing bearer/.test(raw) ? 'project_token'
+          : /x-coders-user|unknown (?:visitor|user)|invalid visitor/.test(raw) ? 'visitor'
+            : /cloudflare|access denied|forbidden|blocked/.test(raw) && mime.includes('text/html') ? 'edge_denied'
+              : /not configured|not enabled|unsupported provider|provider unavailable/.test(raw) ? 'provider_unavailable'
+                : 'unclassified';
+  console.warn(`[ai] managed upstream status=${reply.status} source=${source} signature=${signature} format=${mime.includes('json') ? 'json' : mime.includes('html') ? 'html' : 'other'}`);
+}
+
 export function aiConfiguration(env = process.env, visitor = null) {
   const settings = aiSettings(env);
   const reason = settings.managed
@@ -114,7 +132,7 @@ async function requestWriting(mode, input, { env = process.env, fetchImpl = fetc
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${config.key}`,
-        ...(identity ? { 'X-Coders-User': identity, 'User-Agent': 'RHWP-Workspace/0.7' } : {}),
+        ...(identity ? { 'X-Coders-User': identity, Accept: 'application/json', 'User-Agent': 'Coders-Agent/1.0 RHWP-Workspace/0.7' } : {}),
       },
       body: JSON.stringify({
         model: config.model, store: false, max_output_tokens: config.managed ? 3072 : 4096,
@@ -131,6 +149,7 @@ async function requestWriting(mode, input, { env = process.env, fetchImpl = fetc
     throw new AiRequestError(502, 'AI_UNAVAILABLE', 'AI 서버에 연결할 수 없어요. 연결 상태를 확인하고 다시 시도해 주세요.');
   }
   if (!reply.ok) {
+    if (config.managed) await reportManagedFailure(reply, config.endpoint);
     if (reply.status === 401 || reply.status === 403) {
       const message = config.managed ? '코더스 AI 연결에 문제가 있어요. 잠시 후 다시 시도해 주세요.' : 'API 키 또는 모델 접근 권한을 확인해 주세요.';
       throw new AiRequestError(502, 'AI_AUTH', message);
