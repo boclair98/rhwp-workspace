@@ -1746,3 +1746,66 @@ summary:focus-visible,
 .workspace-loading strong { display: block; font-size: 18px; line-height: 1.5; }
 .workspace-loading p { margin: 8px 0 0; color: var(--ui-text-secondary); font-size: 14px; line-height: 1.6; }
 .workspace-loading, .workspace-loading > div { box-sizing: border-box; }
+
+/* v0.11: the native RHWP ribbon is the desktop workspace, with AI beside the page. */
+@media (min-width: 901px) {
+  #studio-root.workspace-classic { grid-template-rows: 44px auto minmax(0, 1fr) 32px; }
+  .workspace-classic .workspace-topbar { gap: 16px; padding: 0 14px; }
+  .workspace-classic .workspace-brand { width: auto; gap: 8px; }
+  .workspace-classic .workspace-wordmark { font-size: 16px; letter-spacing: -.035em; }
+  .workspace-classic .workspace-document-meta { display: flex; justify-content: center; gap: 10px; }
+  .workspace-classic #workspace-title { flex: 0 1 auto; font-size: 14px; }
+  .workspace-classic .workspace-rename { font-size: 11px; }
+  .workspace-classic .workspace-library-status { font-size: 11px; }
+  .workspace-classic .workspace-actions { gap: 4px; }
+  .workspace-classic .workspace-actions .workspace-button { min-height: 32px; height: 32px; padding: 0 10px; border-radius: 4px; font-size: 12px; }
+  .workspace-classic .workspace-actions svg { width: 16px; height: 16px; }
+  #studio-root.workspace-classic #studio-header { position: relative; grid-column: 1 / -1; }
+  #studio-root.workspace-classic #menu-bar { min-height: 38px; padding-right: 320px; gap: 2px; }
+  #studio-root.workspace-classic #menu-bar .menu-title { padding: 10px 16px; border-radius: 0; font-size: 14px; }
+  .workspace-classic #workspace-quickbar { position: absolute; top: 0; right: 10px; padding: 0; min-height: 38px; height: 38px; border: 0; gap: 6px; background: transparent; }
+  .workspace-classic #workspace-quickbar .workspace-desktop-tools,
+  .workspace-classic #workspace-quickbar .workspace-mobile-tools { display: none; }
+  .workspace-classic #workspace-quickbar .workspace-tool-button { height: 32px; min-width: 32px; border-radius: 4px; font-size: 12px; }
+  .workspace-classic #workspace-quickbar .workspace-tool-group { padding-right: 6px; }
+  #studio-root.workspace-classic #icon-toolbar { order: 2; min-height: 88px; height: 88px; padding: 6px 12px; border-bottom: 1px solid var(--ui-border); }
+  .workspace-classic #icon-toolbar .tb-btn { min-width: 58px; height: 74px; gap: 5px; padding: 5px 7px; border-radius: 4px; }
+  .workspace-classic #icon-toolbar .tb-label { font-size: 12px; line-height: 1.2; }
+  .workspace-classic #icon-toolbar .tb-label br { display: initial; }
+  .workspace-classic #icon-toolbar .workspace-tool-icon,
+  .workspace-classic #icon-toolbar .workspace-tool-icon svg { width: 27px; height: 27px; }
+  .workspace-classic #icon-toolbar .tb-sep { height: 64px; margin: 0 8px; }
+  #studio-root.workspace-classic #style-bar { order: 3; display: flex; align-items: center; flex-wrap: wrap; min-height: 44px; padding: 5px 12px; gap: 10px; }
+  .workspace-classic #style-bar .sb-field-grid { display: flex; align-items: center; gap: 6px; }
+  .workspace-classic #style-bar .sb-field { display: flex; flex: 0 0 auto; }
+  .workspace-classic #style-bar .sb-field-label,
+  .workspace-classic #style-bar .sb-ribbon-label { display: none; }
+  .workspace-classic #style-bar .sb-command-track,
+  .workspace-classic #style-bar .sb-command-band { display: flex; flex-direction: row; align-items: center; flex-wrap: nowrap; }
+  .workspace-classic #style-bar .sb-ribbon-group { padding: 0; flex: 0 0 auto; }
+  .workspace-classic #style-bar select,
+  .workspace-classic #style-bar input { height: 30px; border-radius: 3px; }
+  .workspace-classic #style-name { width: 90px; }
+  .workspace-classic #font-lang { width: 64px; }
+  .workspace-classic #font-name { width: 145px; }
+  .workspace-classic #style-bar .sb-btn { min-width: 28px; min-height: 30px; border-radius: 3px; }
+  .workspace-classic #status-bar { height: 32px; }
+  #studio-root.workspace-classic #workspace-ai-panel { grid-row: 3 / 5; }
+}
+@media (min-width: 1101px) {
+  #studio-root.workspace-classic.workspace-ai-open { grid-template-columns: 208px minmax(0, 1fr) 350px; }
+  #studio-root.workspace-classic.workspace-ai-open.workspace-sidebar-collapsed { grid-template-columns: 0 minmax(0, 1fr) 350px; }
+}
+
+@media (min-width: 901px) {
+  .workspace-classic #workspace-sidebar { grid-row: 3 / -1; }
+  .workspace-classic #style-bar .sb-field-ribbon-group { width: auto; min-width: 0; height: auto; padding-right: 10px; }
+  .workspace-classic #style-bar .sb-field-grid { width: auto; max-width: none; }
+  .workspace-classic #style-bar .sb-size-group { width: 90px; height: 30px; }
+  .workspace-classic #style-bar #font-size { width: 48px; min-width: 0; height: 28px; border: 0; }
+  .workspace-classic #style-bar .sb-ls-group { width: 90px; height: 30px; }
+  .workspace-classic #style-bar .sb-ls-select { width: 76px; }
+  .workspace-classic #style-bar .sb-size-arrows,
+  .workspace-classic #style-bar .sb-ls-arrows { height: 28px; }
+  .workspace-classic #style-bar .sb-arrow { min-height: 0; height: 14px; border-radius: 0; }
+}

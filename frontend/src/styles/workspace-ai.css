@@ -336,3 +336,13 @@ body:has(.workspace-ai-sheet[open]) #editor-area .caret { visibility: hidden !im
 .workspace-ai-receipt summary { min-height: 44px; align-content: center; cursor: pointer; font-size: 14px; }
 .workspace-ai-receipt-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .workspace-ai-receipt-actions button { flex: 1 1 auto; min-height: 44px; font-size: 14px; }
+
+@media (min-width: 901px) {
+  .workspace-classic .workspace-ai-heading { padding: 12px 14px; gap: 8px; }
+  .workspace-classic .workspace-ai-heading h2 { font-size: 17px; }
+  .workspace-classic .workspace-ai-icon { width: 30px; height: 30px; border-radius: 6px; }
+  .workspace-classic .workspace-ai-heading .workspace-button { font-size: 13px; }
+  .workspace-classic .workspace-ai-body { padding-inline: 14px; }
+  .workspace-classic .workspace-ai-request h3 { font-size: 20px; text-align: left; }
+  .workspace-classic .workspace-ai-body .workspace-ai-request { margin-top: 22px; }
+}

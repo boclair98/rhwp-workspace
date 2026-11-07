@@ -1,5 +1,17 @@
 # 글결 — RHWP 문서 작업 공간
 
+## v0.11 한글식 리본 편집기와 AI 보조 패널 — 2026-11-07
+
+사용자가 한글 데스크톱 편집기 스크린샷을 주며 “이런 UI에 AI만 달려고 하는 것”이라고 정정했다. 이번 방향은 기존 간편 도구 중심 웹 작업 공간을 기본 리본 편집 화면으로 바꾸는 것이다. RHWP의 원본 메뉴·리본·글꼴/문단 컨트롤과 캔버스/눈금자를 재사용한다. 별도 랜딩/대시보드나 가짜 도구를 만들지 않는다.
+
+- Resolved inputs: Topic=한글 문서 편집, Offer=익숙한 리본 편집기에 AI 작성 추가, Audience=기존 한글 사용자, Primary action=문서 열기/직접 편집/AI 요청, Deliverable=편집기 기본 배치 한 개, Style direction=밝은 데스크톱 문서 프로그램, Tonal key=짧은 기능 이름, Icon policy=기존 MIT/ISC 오픈소스 아이콘 유지, Proof assets=사용자 제공 UI 참고와 실제 시험 문서, Motion intensity=상태 피드백만.
+- Composition contract: hero 없음. 데스크톱은 낮은 제목줄→파일/편집/보기/입력/서식/쪽/표/도구 메뉴→큰 아이콘 리본→한 줄 서식 도구→눈금자/큰 종이→상태바. 왼쪽 문서 보관함은 기본 접힘이며 명시적으로 펼친 설정은 존중한다. AI 패널은 문서 오른쪽에 붙고 상단 리본 폭을 침범하지 않는다. AI를 닫으면 문서가 가용 폭을 사용한다.
+- Tokens: 기존 Pretendard/Malgun Gothic/system-ui, text #191f28, secondary #4e5968, white #fff, workspace #f2f4f6, border #e5e8eb, primary #1b64da. 제목/메뉴14~16px, 리본12~13px, AI 입력17px/1.6, AI 제목20px. 제목줄44px, 메뉴38px, 리본88px, 서식 약44px, 간격4/8/12/16px, 데스크톱 도구 반경4px. 문서 내부 글자 크기/쪽 서식은 유지한다.
+- CTA/계약: 기존 명령 id와 toolbar event 그대로, 리본 접기/펼치기는 원본 도구 표시만 변경, AI 버튼→기존 panel, 입력→기존 즉시 반영·undo. 서식 입력/드롭다운을 복제하지 않고 실제 원본 컨트롤을 사용한다. 키/원본 문서/저장소 계약을 바꾸지 않는다.
+- 모바일: 900px 이하는 기존44px 간편 도구와 펼쳐 쓰는 리본, AI 시트를 유지한다. 작은 화면에서 데스크톱 리본을 축소하지 않는다. 필요 시 도구 자체를 가로 스크롤하고 전체 페이지 넘침은 막는다.
+- 경로: workspace-shell.ts, workspace-editor-tools.ts, workspace.css, workspace-ai.css, README/design/검증/버전. build·70 tests·브라우저 AI 회귀에 리본 기본 표시·서식·리본 접기·모바일을 추가하고 360/390/768/1440 스크린샷과 HWP 저장/재열기를 확인한다. 배포는 이전 CPU 부족 실패 상태를 추적하고 최신 canonical→fork 동일 SHA→같은 Coders 프로젝트 순서로 진행한다.
+- Filled master prompt/output target: 사용자 참고의 메뉴·리본·서식·눈금자·문서 위계를 RHWP 원본 컨트롤로 구현하라. 기존 한글 방식의 실제 편집기를 중심에 두고 오른쪽에 AI 입력만 보조로 붙여라. 프로프라이어터리 로고/자산을 복제하지 말고 기존 오픈소스 자산과 API 계약을 보존하라. Output=기존 편집기 TypeScript/CSS.
+
 ## v0.10 문서에 바로 쓰기와 입력 안정화 — 2026-11-07
 
 사용자가 AI 결과가 문서에 바로 나타나지 않고 커서·초점이 혼란스럽다고 보고했다. 실제 v0.9 코드에서 요청 중 커서 이동에 생성 취소, 생성 후 별도 위치 재확인, 완료 화면이 입력창을 대신하는 흐름을 확인했다. 운영 브라우저에서도 AI 입력 중 문서 캐럿이 계속 깜박인다.

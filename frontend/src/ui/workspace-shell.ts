@@ -45,9 +45,9 @@ export function installWorkspaceShell(
   try {
     root.classList.toggle(
       'workspace-sidebar-collapsed',
-      localStorage.getItem('geulgyeol-sidebar') === 'collapsed',
+      localStorage.getItem('geulgyeol-sidebar') !== 'open',
     );
-  } catch {}
+  } catch { root.classList.add('workspace-sidebar-collapsed'); }
   const scrim = document.createElement('div');
   scrim.className = 'workspace-nav-scrim';
   scrim.setAttribute('aria-hidden', 'true');

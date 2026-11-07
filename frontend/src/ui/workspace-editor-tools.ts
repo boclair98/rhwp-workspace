@@ -313,10 +313,13 @@ export function installEditorTools(
       open ? '전체 도구 접기' : '전체 도구 펼치기',
     );
     advanced.title = open ? '전체 도구 접기' : '전체 도구 펼치기';
-    advanced.lastElementChild!.textContent = open ? '간편 도구' : '전체 도구';
+    advanced.lastElementChild!.textContent = open ? '리본 접기' : '전체 도구';
   };
   header.prepend(bar);
-  root.classList.add('workspace-compact');
+  root.classList.add('workspace-compact', 'workspace-classic');
+  const desktopLayout = matchMedia('(min-width:901px)');
+  setAdvanced(desktopLayout.matches);
+  desktopLayout.addEventListener('change', () => setAdvanced(desktopLayout.matches));
   header.addEventListener('keydown', (event) => {
     if (
       event.key === 'Escape' &&
