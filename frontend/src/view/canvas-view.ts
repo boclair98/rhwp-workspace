@@ -145,6 +145,7 @@ export class CanvasView {
   private textEditRefreshRafId: number | null = null;
   private textEditStaticLayerVerifyTimers = new Map<number, ReturnType<typeof setTimeout>>();
   private rendererSelectionEpoch = 0;
+  private documentViewEpoch = 0;
   private rendererFallbackScheduled = false;
   private canvasMetricRecovery = new CanvasMetricRecovery();
   private activeRendererDecisionKey: string | null = null;
@@ -255,18 +256,27 @@ export class CanvasView {
   async loadDocument(): Promise<void> {
     if (this.disposed) return;
     if (!this.documentLoadPrepared) this.prepareDocumentLoad();
-    const epoch = this.rendererSelectionEpoch;
     this.documentLoadPrepared = false;
-    if (this.disposed) return;
-    const selection = await this.rendererSession.resolve(this.wasm);
-    if (this.disposed || epoch !== this.rendererSelectionEpoch || !this.rendererSession.isCurrent(selection)) return;
-    await this.wasm.prepareCanvasMetrics(selection.backend, () => !this.disposed && epoch === this.rendererSelectionEpoch && this.rendererSession.isCurrent(selection));
-    if (
-      this.disposed
-      || epoch !== this.rendererSelectionEpoch
-      || !this.rendererSession.isCurrent(selection)
-    ) return;
-    this.applyRendererSelection(selection);
+    const viewEpoch = this.documentViewEpoch;
+    const documentGeneration = this.wasm.documentGeneration;
+    const sameView = () => !this.disposed
+      && viewEpoch === this.documentViewEpoch
+      && documentGeneration === this.wasm.documentGeneration;
+    while (sameView()) {
+      const selectionEpoch = this.rendererSelectionEpoch;
+      const selection = await this.rendererSession.resolve(this.wasm);
+      const currentSelection = () => sameView()
+        && selectionEpoch === this.rendererSelectionEpoch
+        && this.rendererSession.isCurrent(selection);
+      // A font refresh may supersede the initial renderer selection before any page exists.
+      // Retry for this view so the loading placeholder does not become the final page.
+      if (!currentSelection()) continue;
+      await this.wasm.prepareCanvasMetrics(selection.backend, currentSelection);
+      if (!currentSelection()) continue;
+      this.applyRendererSelection(selection);
+      break;
+    }
+    if (!sameView()) return;
 
     const pageCount = this.wasm.pageCount;
     this.pages = [];
@@ -2150,6 +2160,7 @@ export class CanvasView {
 
   /** 리소스를 정리한다 */
   private reset(): void {
+    this.documentViewEpoch += 1;
     this.viewportManager.cancelPendingZoomRaster();
     this.zoomRefreshRequired = false;
     const hadActivePage = this.activePageSnapshot !== null;

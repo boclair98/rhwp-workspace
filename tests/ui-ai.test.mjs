@@ -55,7 +55,16 @@ test('AI browser regression: focus, direct edits, cancellation, preservation, HW
     await p.getByRole('textbox',{name:'문서 편집 입력',exact:true}).waitFor({state:'attached'});
     await p.waitForFunction(()=>document.querySelector('#editor-area')?.getAttribute('aria-busy') !== 'true' && !document.querySelector('#editor-area')?.inert);
   };
+  // Exercise a cold load where UI fonts can finish during initial page rendering.
+  const delayedFonts = /\/fonts\/Pretendard-[^/]+\.woff2$/;
+  await context.route(delayedFonts, async route => {
+    await new Promise(resolve => setTimeout(resolve, 1600));
+    await route.continue();
+  });
   await start(page);
+  await page.locator('#scroll-content .document-page-canvas').first().waitFor({state:'visible'});
+  assert.equal(await page.locator('#scroll-content .page-placeholder').count(),0);
+  await context.unroute(delayedFonts);
   assert.equal(await page.locator('#icon-toolbar').isVisible(),true,'Native ribbon opens on desktop');
   assert.equal(await page.locator('#style-bar').isVisible(),true);
   assert.equal(await page.locator('#studio-root').evaluate(e=>e.classList.contains('workspace-sidebar-collapsed')),true);
