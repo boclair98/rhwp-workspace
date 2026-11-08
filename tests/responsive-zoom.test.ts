@@ -5,7 +5,6 @@ import { createFitResizeHandler } from '../frontend/src/workspace/responsive-zoo
 function setup() {
   let state = {
     loaded: true,
-    narrow: true,
     mode: 'fitWidth' as 'none' | 'fitWidth' | 'fitPage',
   };
   const frames: (() => void)[] = [],
@@ -60,17 +59,16 @@ test('manual zoom stays selected during rotation and cancels a queued refit', ()
   t.flush();
   assert.deepEqual(t.calls, []);
 });
-test('desktop or unloaded documents are not refitted', () => {
+test('fit width follows the desktop panel; unloaded documents wait', () => {
   const t = setup();
-  t.resize(340, 560);
-  t.state.narrow = false;
-  t.resize(1200, 700);
+  t.resize(1400, 700);
+  t.resize(1100, 700);
   t.flush();
-  t.state.narrow = true;
+  assert.deepEqual(t.calls, ['fitWidth']);
   t.state.loaded = false;
-  t.resize(370, 640);
+  t.resize(1400, 700);
   t.flush();
-  assert.deepEqual(t.calls, []);
+  assert.deepEqual(t.calls, ['fitWidth']);
 });
 test('invalid/zero viewport measurements do not overwrite the previous size', () => {
   const t = setup();

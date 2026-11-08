@@ -26,6 +26,16 @@ function samePosition(a: DocumentPosition, b: DocumentPosition): boolean {
   });
 }
 
+/** The text actually written by one AI operation, excluding added paragraph separators. */
+export interface AiAppliedRange {
+  kind: 'body' | 'sentence';
+  generation: number;
+  revision: number;
+  start: DocumentPosition;
+  end: DocumentPosition;
+  text: string;
+}
+
 export class AiEditor {
   revision = 0;
   private wasm: WasmBridge;
@@ -95,15 +105,45 @@ export class AiEditor {
     }
   }
 
-  applyDraft(target: AiEditTarget, proposed: string, separateParagraphs = false): void {
+  private appliedRange(kind: AiAppliedRange['kind'], start: DocumentPosition, end: DocumentPosition, text: string): AiAppliedRange {
+    return { kind, start: structuredClone(start), end: structuredClone(end), text, generation: this.wasm.documentGeneration, revision: this.revision };
+  }
+
+  isCurrentApplied(range: AiAppliedRange): boolean {
+    return range.generation === this.wasm.documentGeneration && range.revision === this.revision;
+  }
+
+  private insertBodyLines(w: WasmBridge, start: DocumentPosition, lines: string[], prefix: string, suffix: string): DocumentPosition {
+    const { sectionIndex, paragraphIndex, charOffset } = start;
+    let pos = { sectionIndex, paragraphIndex, charOffset };
+    for (const [index, line] of lines.entries()) {
+      if (line) w.insertText(sectionIndex, pos.paragraphIndex, pos.charOffset, line);
+      pos.charOffset += codePointLength(line);
+      if (index < lines.length - 1) {
+        const result = JSON.parse(w.splitParagraph(sectionIndex, pos.paragraphIndex, pos.charOffset));
+        if (!result.ok || result.paraIdx !== pos.paragraphIndex + 1) throw new Error('문단을 나눌 수 없어요. 다른 위치에서 다시 시도해 주세요.');
+        pos = { sectionIndex, paragraphIndex: result.paraIdx, charOffset: 0 };
+      }
+    }
+    for (const [index, line] of lines.entries()) {
+      const expected = (index === 0 ? prefix : '') + line + (index === lines.length - 1 ? suffix : '');
+      if (this.paragraph({ sectionIndex, paragraphIndex: paragraphIndex + index, charOffset: 0 }) !== expected) {
+        throw new Error('글을 바꾸는 중 문제가 생겨 원래 문서로 되돌렸어요.');
+      }
+    }
+    return pos;
+  }
+
+  applyDraft(target: AiEditTarget, proposed: string, separateParagraphs = false): AiAppliedRange {
     const input = this.editableInput();
     this.assertCurrent(target);
-    let text = validateDraft(proposed);
+    const text = validateDraft(proposed);
     const { sectionIndex, paragraphIndex, charOffset } = target.start;
     const original = [...target.paragraphText];
     const prefix = original.slice(0, charOffset).join('');
     const suffix = original.slice(charOffset).join('');
-    if (separateParagraphs) text = (prefix.trim() ? '\n\n' : '') + text + (suffix.trim() ? '\n\n' : '');
+    const leading = separateParagraphs && prefix.trim() ? '\n\n' : '';
+    const trailing = separateParagraphs && suffix.trim() ? '\n\n' : '';
     const lines = text.split('\n');
     let ran = false;
     input.executeOperation({
@@ -111,30 +151,73 @@ export class AiEditor {
       operationType: 'aiDraftInsertion',
       operation: w => {
         this.assertCurrent(target);
-        let pos = { sectionIndex, paragraphIndex, charOffset };
-        for (const [index, line] of lines.entries()) {
-          if (line) w.insertText(sectionIndex, pos.paragraphIndex, pos.charOffset, line);
-          pos.charOffset += codePointLength(line);
-          if (index < lines.length - 1) {
-            const result = JSON.parse(w.splitParagraph(sectionIndex, pos.paragraphIndex, pos.charOffset));
-            if (!result.ok || result.paraIdx !== pos.paragraphIndex + 1) throw new Error('문단을 나눌 수 없어요. 다른 위치에서 다시 시도해 주세요.');
-            pos = { sectionIndex, paragraphIndex: result.paraIdx, charOffset: 0 };
-          }
-        }
-        for (const [index, line] of lines.entries()) {
-          const expected = (index === 0 ? prefix : '') + line + (index === lines.length - 1 ? suffix : '');
-          if (this.paragraph({ sectionIndex, paragraphIndex: paragraphIndex + index, charOffset: 0 }) !== expected) {
-            throw new Error('글을 넣는 중 문제가 생겨 원래 문서로 되돌렸어요. 다른 위치에서 다시 시도해 주세요.');
-          }
-        }
+        const pos = this.insertBodyLines(w, target.start, (leading + text + trailing).split('\n'), prefix, suffix);
         ran = true;
         return pos;
       },
     });
     if (!ran) throw new Error('현재 위치에 글을 넣을 수 없어요. 본문을 다시 눌러 주세요.');
+    const start = { sectionIndex, paragraphIndex: paragraphIndex + (leading ? 2 : 0), charOffset: leading ? 0 : charOffset };
+    const end = {
+      sectionIndex,
+      paragraphIndex: start.paragraphIndex + lines.length - 1,
+      charOffset: (lines.length === 1 ? start.charOffset : 0) + codePointLength(lines[lines.length - 1]),
+    };
+    return this.appliedRange('body', start, end, text);
   }
 
-  apply(target: AiEditTarget, proposed: string): void {
+  replaceApplied(range: AiAppliedRange, proposed: string): AiAppliedRange {
+    const changed = '방금 쓴 부분의 위치를 확인할 수 없어요. 수정할 문장을 선택하고 다시 요청해 주세요.';
+    if (!this.isCurrentApplied(range)) throw new Error(changed);
+    if (range.kind === 'sentence') {
+      const target = createAiTarget(range, this.paragraph(range.start), range.generation, range.revision);
+      if (target.text !== range.text) throw new Error(changed);
+      return this.apply(target, proposed);
+    }
+
+    const input = this.editableInput();
+    const text = validateDraft(proposed);
+    if (text === range.text) throw new Error('방금 쓴 글과 같아요. 바꿀 내용을 조금 더 알려 주세요.');
+    const { start, end } = range;
+    const { sectionIndex, paragraphIndex, charOffset } = start;
+    const lines = text.split('\n');
+    let newEnd: DocumentPosition | undefined;
+    input.executeOperation({
+      kind: 'snapshot',
+      operationType: 'aiDraftRevision',
+      operation: w => {
+        if (!this.isCurrentApplied(range)) throw new Error(changed);
+        const original: string[] = [];
+        for (let para = paragraphIndex; para <= end.paragraphIndex; para++) {
+          original.push(this.paragraph({ sectionIndex, paragraphIndex: para, charOffset: 0 }));
+        }
+        const first = [...original[0]], last = [...original[original.length - 1]];
+        if (charOffset > first.length || end.charOffset > last.length) throw new Error(changed);
+        const actual = original.map((line, index) => [...line].slice(
+          index === 0 ? charOffset : 0,
+          index === original.length - 1 ? end.charOffset : undefined,
+        ).join('')).join('\n');
+        if (actual !== range.text) throw new Error(changed);
+        const prefix = first.slice(0, charOffset).join('');
+        const suffix = last.slice(end.charOffset).join('');
+        const count = w.getParagraphCount(sectionIndex);
+        const controls = () => w.getControls().map(control => control.ctrlId).join(' ');
+        const beforeControls = controls();
+        const removed = w.deleteRange(sectionIndex, paragraphIndex, charOffset, end.paragraphIndex, end.charOffset);
+        if (!removed.ok || this.paragraph(start) !== prefix + suffix) throw new Error(changed);
+        const position = this.insertBodyLines(w, start, lines, prefix, suffix);
+        if (w.getParagraphCount(sectionIndex) !== count - original.length + lines.length || beforeControls !== controls()) {
+          throw new Error('표나 개체를 보호하기 위해 문서를 원래대로 되돌렸어요.');
+        }
+        newEnd = position;
+        return position;
+      },
+    });
+    if (!newEnd) throw new Error('현재 편집 상태에서는 글을 바꿀 수 없어요.');
+    return this.appliedRange('body', start, newEnd, text);
+  }
+
+  apply(target: AiEditTarget, proposed: string): AiAppliedRange {
     const input = this.input();
     if (!input || input.isFormMode() || input.isInSeparateCaretSpace()) throw new Error('일반 편집 모드에서 적용해 주세요.');
     this.assertCurrent(target);
@@ -166,5 +249,6 @@ export class AiEditor {
       },
     });
     if (!ran) throw new Error('현재 편집 상태에서는 적용할 수 없어요. 일반 편집 모드인지 확인해 주세요.');
+    return this.appliedRange('sentence', p, { ...p, charOffset: p.charOffset + codePointLength(text) }, text);
   }
 }

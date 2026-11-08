@@ -8,8 +8,10 @@ initSync({ module: fs.readFileSync(new URL('../pkg/rhwp_bg.wasm', import.meta.ur
 
 function harness(doc: HwpDocument, selection: any) {
   const w: any = { documentGeneration: 1, hasLoadedDocument: () => true };
-  for (const name of ['getParagraphLength', 'getTextRange', 'getTextInCellByPath', 'deleteText', 'insertText', 'splitParagraph', 'deleteTextInCellByPath', 'insertTextInCellByPath', 'applyCharFormat', 'applyCharFormatInCellByPath']) w[name] = (doc as any)[name].bind(doc);
+  for (const name of ['getParagraphLength', 'getParagraphCount', 'getTextRange', 'getTextInCellByPath', 'deleteText', 'insertText', 'splitParagraph', 'deleteTextInCellByPath', 'insertTextInCellByPath', 'applyCharFormat', 'applyCharFormatInCellByPath']) w[name] = (doc as any)[name].bind(doc);
   for (const name of ['getCharPropertiesAt', 'getCellCharPropertiesAtByPath']) w[name] = (...args: any[]) => JSON.parse((doc as any)[name](...args));
+  w.getControls = () => JSON.parse(doc.getControls());
+  w.deleteRange = (...args: [number, number, number, number, number]) => JSON.parse(doc.deleteRange(...args));
   w.getFieldInfoAt = () => ({ inField: false });
   let before = -1, after = -1;
   const input: any = {
@@ -193,5 +195,54 @@ test('64줄 AI 글도 HWP 왕복 후 줄과 내용이 보존된다', () => {
     try { for (let n = 0; n < lines.length; n++) assert.equal(saved.getTextRange(0, n, 0, 100), lines[n]); }
     finally { saved.free(); }
     h.undo(); assert.equal(doc.getTextRange(0, 0, 0, 100), '');
+  } finally { h.release(); }
+});
+
+test('이어 쓰기는 커서와 별개로 실제 AI 여러 문단만 바꾸고 주변 문단·표·되돌리기를 보존한다', () => {
+  const doc = HwpDocument.createEmpty();
+  doc.createBlankDocument();
+  doc.insertText(0, 0, 0, '왼쪽 😀 오른쪽');
+  doc.splitParagraph(0, 0, [...'왼쪽 😀 오른쪽'].length);
+  doc.createTable(0, 1, 0, 2, 2);
+  const h = harness(doc, null);
+  try {
+    h.input.getCursorPosition = () => p([...'왼쪽 😀'].length);
+    const inserted = h.editor.applyDraft(h.editor.captureDraft(), '긴 제목\n\n상세한 안내문을 여기 작성합니다.', true);
+    const before = JSON.parse(doc.getTextFileText());
+    const controls = JSON.parse(doc.getControls()).map(control => control.ctrlId);
+    h.input.getCursorPosition = () => p(0);
+    const shortened = h.editor.replaceApplied(inserted, '짧은 안내');
+    assert.equal(shortened.text, '짧은 안내');
+    assert.equal(doc.getTextRange(0, 2, 0, 100), '짧은 안내');
+    const edited = JSON.parse(doc.getTextFileText());
+    assert.equal(doc.getTextRange(0, 0, 0, 100), '왼쪽 😀');
+    assert.match(edited, /왼쪽 &#128512;\s+짧은 안내\s+오른쪽/);
+    assert.doesNotMatch(edited, /긴 제목|상세한 안내문/);
+    assert.deepEqual(JSON.parse(doc.getControls()).map(control => control.ctrlId), controls);
+    h.undo();
+    assert.equal(JSON.parse(doc.getTextFileText()), before);
+    h.redo();
+    const more = h.editor.replaceApplied(shortened, '간단 안내\n참여해 주세요.');
+    const reopened = new HwpDocument(doc.exportHwp());
+    try {
+      assert.match(JSON.parse(reopened.getTextFileText()), /왼쪽 &#128512;\s+간단 안내\s+참여해 주세요\.\s+오른쪽/);
+      assert.deepEqual(JSON.parse(reopened.getControls()).map(control => control.ctrlId), controls);
+    } finally { reopened.free(); }
+    h.editor.revision++;
+    assert.throws(() => h.editor.replaceApplied(more, '바뀐 문서에는 쓰지 않음'), /위치를 확인할 수 없어요/);
+    assert.match(JSON.parse(doc.getTextFileText()), /간단 안내/);
+  } finally { h.release(); }
+});
+
+test('빈 문서 첫 쪽에 AI가 쓴 여러 문단을 한 줄로 바꿔도 구역 정의가 남는다', () => {
+  const doc = HwpDocument.createEmpty();
+  doc.createBlankDocument();
+  const h = harness(doc, null);
+  try {
+    const first = h.editor.applyDraft(h.editor.captureDraft(), '책 나눔 모임 안내\n12월 3일 주민센터에서 만납니다.', true);
+    h.editor.replaceApplied(first, '12월 3일 주민센터에서 책을 나눕니다.');
+    assert.equal(doc.getParagraphCount(0), 1);
+    assert.equal(doc.getTextRange(0, 0, 0, 100), '12월 3일 주민센터에서 책을 나눕니다.');
+    assert.deepEqual(JSON.parse(doc.getControls()).map(control => control.ctrlId), ['secd', 'cold']);
   } finally { h.release(); }
 });

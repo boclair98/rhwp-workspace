@@ -1,9 +1,9 @@
 import type { WasmBridge } from '../core/wasm-bridge';
 import type { EventBus } from '../core/event-bus';
 import type { InputHandler } from '../engine/input-handler';
-import { AiEditor } from '../workspace/ai-editor';
+import { AiEditor, type AiAppliedRange } from '../workspace/ai-editor';
 import { revisionDifference, validateDraft, validateRevision, codePointLength, type AiEditTarget } from '../workspace/ai-edit';
-import { AiAccessError, isCodersSite, readAiConnection, makeAiWriting, type AiConnection, type AiWritingRequest } from '../workspace/ai-client';
+import { AiAccessError, AiSessionChangedError, isCodersSite, readAiConnection, makeAiWriting, type AiConnection, type AiWritingRequest } from '../workspace/ai-client';
 import { WRITING_TEMPLATES, renderWritingTemplate, type WritingTemplateId } from '../workspace/writing-templates';
 import { workspaceDialog } from './workspace-dialog';
 import { showToast } from './toast';
@@ -11,7 +11,14 @@ import type { CommandDispatcher } from '../command/dispatcher';
 import { installWritingLibrary } from './workspace-writing-library';
 
 const panelTitle = 'AI 글쓰기';
-type Proposal = { text: string; source: 'manual' | 'ai' | 'template'; explanation?: string };
+type AppliedConversation = { range: AiAppliedRange; initialRequest: string; lastRequest: string };
+type ConversationChange = { request: string; previous?: AppliedConversation };
+type Proposal = {
+  text: string;
+  source: 'manual' | 'ai' | 'template';
+  explanation?: string;
+  conversation?: ConversationChange;
+};
 
 export function installWorkspaceAi(wasm: WasmBridge, bus: EventBus, getInput: () => InputHandler | null, dispatcher: CommandDispatcher): void {
   const root = document.getElementById('studio-root')!;
@@ -23,7 +30,7 @@ export function installWorkspaceAi(wasm: WasmBridge, bus: EventBus, getInput: ()
   trigger.className = 'workspace-tool-button workspace-ai-toggle';
   trigger.setAttribute('aria-label', `${panelTitle} 열기`);
   trigger.setAttribute('aria-controls', 'workspace-ai-panel');
-  trigger.innerHTML = '<span class="workspace-ai-long">AI 글쓰기</span><span class="workspace-ai-short" aria-hidden="true">AI 글쓰기</span>';
+  trigger.innerHTML = '<span class="workspace-ai-mark" aria-hidden="true">AI</span><span class="workspace-ai-long" aria-hidden="true">글쓰기</span>';
   document.getElementById('workspace-quickbar')!.append(trigger);
   const panel = document.createElement('aside');
   panel.id = 'workspace-ai-panel';
@@ -31,7 +38,7 @@ export function installWorkspaceAi(wasm: WasmBridge, bus: EventBus, getInput: ()
   panel.innerHTML = `
     <header class="workspace-ai-heading">
       <span class="workspace-ai-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M13 20h8M17 4a2.1 2.1 0 0 1 3 3L9 18l-5 1 1-5Z"/><path d="m15 6 3 3"/></svg></span>
-      <div><h2>${panelTitle}</h2><p class="workspace-ai-subtitle">말로 요청하면 문서에 바로 작성</p></div>
+      <div><h2>${panelTitle}</h2></div>
       <button type="button" class="workspace-button" data-ai-close aria-label="${panelTitle} 닫기">닫기</button>
     </header>
     <div class="workspace-ai-body">
@@ -64,7 +71,7 @@ export function installWorkspaceAi(wasm: WasmBridge, bus: EventBus, getInput: ()
         <strong data-ai-receipt-title>문서에 작성했어요</strong>
         <p data-ai-receipt-note></p>
         <details><summary>작성한 글 보기</summary><p data-ai-receipt-text></p></details>
-        <div class="workspace-ai-receipt-actions"><button type="button" class="workspace-button" data-ai-document>문서 보기</button><button type="button" class="workspace-button" data-ai-undo>방금 작성한 글 되돌리기</button></div>
+        <div class="workspace-ai-receipt-actions"><button type="button" class="workspace-button" data-ai-document>문서 보기</button><button type="button" class="workspace-button" data-ai-undo aria-label="방금 작성한 글 되돌리기">되돌리기</button></div>
       </section>
       <section class="workspace-ai-account" data-ai-account hidden aria-label="AI 사용 안내">
         <p class="workspace-ai-caption" data-ai-account-message role="status"></p>
@@ -95,7 +102,7 @@ export function installWorkspaceAi(wasm: WasmBridge, bus: EventBus, getInput: ()
         <p class="workspace-ai-caption" id="workspace-review-count"></p><p id="workspace-review-error" class="workspace-ai-feedback is-error" role="status"></p>
         <details data-ai-original><summary>원문과 비교</summary><h4>원래 문장</h4><p data-ai-before></p><h4 data-ai-result-label>다듬은 문장</h4><p data-ai-after></p></details>
         <p class="workspace-ai-caption" data-ai-explanation></p>
-        <div class="workspace-review-location" data-review-location><p>글은 남아 있어요. 넣을 위치를 확인해 주세요.</p><button type="button" class="workspace-button" data-review-rebind>현재 위치 다시 확인</button></div>
+        <div class="workspace-review-location" data-review-location><p data-review-location-message>글은 남아 있어요. 넣을 위치를 확인해 주세요.</p><button type="button" class="workspace-button" data-review-rebind>현재 위치 다시 확인</button></div>
       </section>
       <section class="workspace-writing-done" data-writing-done hidden tabindex="-1" aria-label="문서 반영 완료"><span aria-hidden="true">✓</span><h3>문서에 넣었어요</h3><p>문서에서 서식을 더 다듬거나,<br>한글 파일로 저장할 수 있어요.</p><p class="workspace-ai-caption">되돌리기는 Ctrl+Z 또는 상단 화살표를 눌러 주세요.</p></section>
       <p class="workspace-ai-feedback" role="status" aria-live="polite" tabindex="-1" data-ai-feedback></p>
@@ -120,7 +127,7 @@ export function installWorkspaceAi(wasm: WasmBridge, bus: EventBus, getInput: ()
   thread.className = 'workspace-ai-thread';
   const intro = document.createElement('div');
   intro.className = 'workspace-ai-chat-intro';
-  intro.innerHTML = '<strong>필요한 글을 말해 주세요</strong><p>안내문부터 문장 다듬기까지,<br>이 문서에 바로 작성해 드려요.</p>';
+  intro.innerHTML = '<strong>문서에 쓸 글을 요청하세요</strong><p>글을 쓴 뒤 “방금 쓴 거 더 짧게”처럼 이어서 수정할 수 있어요.</p>';
   const history = document.createElement('div');
   history.className = 'workspace-ai-chat-history';
   history.setAttribute('role', 'log');
@@ -141,7 +148,7 @@ export function installWorkspaceAi(wasm: WasmBridge, bus: EventBus, getInput: ()
     intro.hidden = true;
     const message = document.createElement('article');
     message.className = `workspace-ai-message is-${role}`;
-    const label = document.createElement('strong'); label.textContent = role === 'user' ? '내 요청' : 'AI가 작성한 글';
+    const label = document.createElement('strong'); label.textContent = role === 'user' ? '내 요청' : 'AI 답변';
     const content = document.createElement('p'); content.textContent = text;
     message.append(label, content); history.append(message);
     while (history.children.length > 12) history.firstElementChild?.remove();
@@ -153,6 +160,7 @@ export function installWorkspaceAi(wasm: WasmBridge, bus: EventBus, getInput: ()
   const receipt = find('[data-ai-receipt]');
   const undo = find<HTMLButtonElement>('[data-ai-undo]');
   let appliedRevision: number | null = null;
+  let lastApplied: AppliedConversation | null = null;
   const manual = find<HTMLTextAreaElement>('#workspace-ai-manual-text');
   const generate = find<HTMLButtonElement>('[data-ai-generate]');
   const generateLabel = find('[data-ai-generate-label]');
@@ -192,7 +200,7 @@ export function installWorkspaceAi(wasm: WasmBridge, bus: EventBus, getInput: ()
   let target: AiEditTarget | null = null;
   let proposal: Proposal | null = null;
   let stage: 'compose' | 'review' | 'done' = 'compose';
-  let reviewTarget: AiEditTarget | null = null;
+  let reviewTarget: AiEditTarget | AiAppliedRange | null = null;
   let reviewError = '';
   let loading = false;
   let stale = false;
@@ -200,7 +208,7 @@ export function installWorkspaceAi(wasm: WasmBridge, bus: EventBus, getInput: ()
   let request: AbortController | null = null;
   let connection: AiConnection | null = null;
   let sheet: ReturnType<typeof workspaceDialog> | null = null;
-  let open = !narrow.matches;
+  let open = false;
   let connectionEpoch = 0;
   let libraryOpen = false;
   let checkingLoginOnReturn = false;
@@ -250,8 +258,9 @@ export function installWorkspaceAi(wasm: WasmBridge, bus: EventBus, getInput: ()
       else generateLabel.textContent = draft ? '양식 미리보기' : '다듬은 글 미리보기';
     }
     generate.setAttribute('aria-describedby', composer ? promptNote.id : footerHint.id);
-    let note = draft ? '요청을 OpenAI로 보내 글을 작성해요.' : '선택한 문장과 요청을 OpenAI로 보내요.';
-    if (autoApply.checked) note += ' 완성되면 문서에 반영해요.';
+    let note = !draft ? '선택한 문장과 요청을 OpenAI에 보내요.'
+      : lastApplied ? '요청과 방금 쓴 글을 OpenAI에 보내요.'
+        : '요청을 OpenAI에 보내요.';
     if (request) note = '글을 쓰고 있어요…';
     else if (missingSelection) note = targetHint();
     else if (!ai) note = 'AI에 연결하면 요청을 보낼 수 있어요.';
@@ -280,7 +289,12 @@ export function installWorkspaceAi(wasm: WasmBridge, bus: EventBus, getInput: ()
     prompt.setAttribute('aria-busy', String(!!request));
     find('[data-review-location]').hidden = !!reviewTarget;
     if (!reviewTarget) find('[data-ai-explanation]').textContent = '';
-    find('[data-ai-original]').hidden = mode === 'draft' || !reviewTarget;
+    const previous = proposal?.conversation?.previous;
+    find('[data-ai-original]').hidden = (mode === 'draft' && !previous) || !reviewTarget;
+    find('[data-review-location-message]').textContent = previous
+      ? '방금 쓴 부분의 위치를 확인할 수 없어요. 문장에서 수정할 곳을 선택해 다시 요청해 주세요.'
+      : '글은 남아 있어요. 넣을 위치를 확인해 주세요.';
+    find('[data-review-rebind]').hidden = !!previous;
     find('[data-review-rebind]').textContent = target && !stale ? '현재 위치 다시 확인' : '문서에서 위치 고르기';
     find('[data-ai-size]').hidden = libraryOpen;
     manualPreview.disabled = loading || missingSelection || !!request || !manual.value.trim();
@@ -293,6 +307,40 @@ export function installWorkspaceAi(wasm: WasmBridge, bus: EventBus, getInput: ()
   const clearProposal = () => { proposal = null; reviewTarget = null; reviewError = ''; stage = 'compose'; sync(); };
   const detachReview = () => { reviewTarget = null; sync(); };
   const cancelRequest = () => { abort(); sync(); };
+  const resetConversation = () => {
+    abort();
+    lastApplied = null;
+    appliedRevision = null;
+    history.replaceChildren();
+    intro.hidden = false;
+    find('[data-ai-receipt-text]').textContent = '';
+    find('[data-ai-receipt-note]').textContent = '';
+    find('[data-ai-before]').replaceChildren();
+    find('[data-ai-after]').replaceChildren();
+    reviewText.value = '';
+    prompt.value = '';
+    manual.value = '';
+    moreTools.open = false;
+    inputs.draft = { prompt: '', manual: '' };
+    inputs.rewrite = { prompt: '', manual: '' };
+    for (const key of Object.keys(templateValues)) delete templateValues[key as WritingTemplateId];
+    target = null;
+    stale = false;
+    mode = 'draft';
+    method = 'ai';
+    clearProposal();
+    renderTemplateFields();
+    showMode();
+  };
+  const rememberApplied = (range: AiAppliedRange, change: ConversationChange) => {
+    const instruction = change.request.trim().slice(0, 1000);
+    lastApplied = {
+      range,
+      initialRequest: change.previous?.initialRequest ?? instruction,
+      lastRequest: instruction,
+    };
+    appliedRevision = editor.revision;
+  };
   const targetHint = () => mode === 'draft' ? '문서에서 글을 넣을 곳을 한 번 눌러 주세요.' : '문서에서 다듬을 문장을 선택해 주세요.';
   const showTarget = () => {
     find('[data-ai-selected]').textContent = target
@@ -314,13 +362,13 @@ export function installWorkspaceAi(wasm: WasmBridge, bus: EventBus, getInput: ()
     for (const button of modeButtons) button.hidden = button.dataset.aiMode === mode;
     find('[data-ai-prompt-label]').textContent = draft ? '무엇을 도와드릴까요?' : '어떻게 다듬을까요?';
     find('[data-ai-rewrite-examples]').hidden = draft;
-    prompt.placeholder = draft ? '예: 다음 주 주민센터 모임 안내문을 써 주세요.' : '예: 읽기 쉬운 말로 바꿔 주세요.';
+    prompt.placeholder = draft ? (lastApplied ? '예: 방금 쓴 거 더 짧게 해줘' : '예: 모임 안내문을 써 주세요.') : '예: 읽기 쉬운 말로 바꿔 주세요.';
     manual.placeholder = draft ? '문서에 넣을 글을 여기에 적어 주세요.' : '선택한 문장을 대신할 글을 적어 주세요.';
     find('[data-ai-manual-label]').textContent = draft ? '넣을 글' : '다듬은 글';
     showTarget(); sync();
   };
   const capture = (force = false) => {
-    if (loading || request || applying) return;
+    if (loading || request || applying || (stage === 'review' && proposal?.conversation?.previous)) return;
     try {
       const next = mode === 'draft' ? editor.captureDraft() : editor.capture();
       if (target && !stale && target.generation === next.generation && target.revision === next.revision
@@ -336,21 +384,24 @@ export function installWorkspaceAi(wasm: WasmBridge, bus: EventBus, getInput: ()
   };
   const refreshReviewText = () => {
     if (!proposal) return;
-    find('[data-ai-result-label]').textContent = mode === 'draft' ? '문서에 넣을 글' : '다듬은 문장';
+    const previous = proposal.conversation?.previous;
+    const multiline = previous ? previous.range.kind === 'body' : mode === 'draft';
+    const before = previous?.range.text ?? reviewTarget?.text ?? '';
+    find('[data-ai-result-label]').textContent = previous ? '바꾼 글' : mode === 'draft' ? '문서에 넣을 글' : '다듬은 문장';
     find('[data-ai-source]').textContent = proposal.source === 'ai' ? 'AI에서 시작' : proposal.source === 'template' ? '양식에서 시작' : '직접 작성';
     find('[data-ai-explanation]').textContent = reviewTarget ? proposal.explanation ?? '' : '';
     proposal.text = reviewText.value;
     try {
-      if (mode === 'draft') validateDraft(proposal.text);
-      else validateRevision(reviewTarget?.text ?? '', proposal.text);
+      if (multiline) validateDraft(proposal.text);
+      else validateRevision(before, proposal.text);
+      if (previous && before === proposal.text) throw new Error('방금 쓴 글과 같아요. 바꿀 내용을 입력해 주세요.');
       reviewError = '';
     } catch (error) { reviewError = (error as Error).message; }
     reviewText.setAttribute('aria-invalid', String(!!reviewError));
     find('#workspace-review-error').textContent = reviewError;
-    find('#workspace-review-count').textContent = `${codePointLength(proposal.text).toLocaleString()} / 2,000자${mode === 'draft' ? ` · ${proposal.text.split('\n').length} / 64줄` : ''}`;
-    find('[data-ai-original]').hidden = mode === 'draft' || !reviewTarget;
-    if (mode === 'rewrite' && reviewTarget) {
-      const diff = revisionDifference(reviewTarget.text, proposal.text);
+    find('#workspace-review-count').textContent = `${codePointLength(proposal.text).toLocaleString()} / 2,000자${multiline ? ` · ${proposal.text.split('\n').length} / 64줄` : ''}`;
+    if ((mode === 'rewrite' || previous) && reviewTarget) {
+      const diff = revisionDifference(before, proposal.text);
       const removed = document.createElement('del'); removed.textContent = diff.removed;
       const added = document.createElement('mark'); added.textContent = diff.added;
       find('[data-ai-before]').replaceChildren(document.createTextNode(diff.prefix), removed, document.createTextNode(diff.suffix));
@@ -358,13 +409,19 @@ export function installWorkspaceAi(wasm: WasmBridge, bus: EventBus, getInput: ()
     }
     sync();
   };
-  const showPreview = (text: string, source: 'manual' | 'ai' | 'template', explanation = '', bind = true) => {
-    if (bind && (!target || stale || loading)) throw new Error(targetHint());
-    if (bind) editor.assertCurrentPosition(target!, mode);
-    const draft = mode === 'draft';
-    text = draft ? validateDraft(text) : validateRevision(bind ? target!.text : '', text);
-    proposal = { text, source, explanation };
-    reviewText.value = text; reviewTarget = bind ? target : null; stage = 'review';
+  const showPreview = (text: string, source: Proposal['source'], explanation = '', bind = true, conversation?: ConversationChange) => {
+    const previous = conversation?.previous;
+    if (bind && !previous) {
+      if (!target || stale || loading) throw new Error(targetHint());
+      editor.assertCurrentPosition(target, mode);
+    }
+    if (bind && previous && !editor.isCurrentApplied(previous.range)) bind = false;
+    const multiline = previous ? previous.range.kind === 'body' : mode === 'draft';
+    text = multiline ? validateDraft(text) : validateRevision(previous?.range.text ?? (bind ? target!.text : ''), text);
+    proposal = { text, source, explanation, conversation };
+    reviewText.value = text;
+    reviewTarget = bind ? previous?.range ?? target : null;
+    stage = 'review';
     say('');
     refreshReviewText();
     preview.focus({ preventScroll: true });
@@ -389,7 +446,10 @@ export function installWorkspaceAi(wasm: WasmBridge, bus: EventBus, getInput: ()
     }
     if (epoch !== connectionEpoch) return;
     const wasInAccount = account.contains(document.activeElement);
-    connection = status;
+    const previousScope = connection?.conversationScope;
+    if (status && previousScope && status.conversationScope !== previousScope) resetConversation();
+    // Keep the prior binding through a failed status check; only a confirmed change clears it.
+    connection = status ?? (previousScope && connection ? { ...connection, configured: false } : null);
     const configured = status?.configured === true;
     const managed = managedSite();
     const needsLogin = managed && (status?.reason === 'login_required' || status?.reason === 'platform_gate');
@@ -476,7 +536,7 @@ export function installWorkspaceAi(wasm: WasmBridge, bus: EventBus, getInput: ()
       view.footer.append(footer);
       view.dialog.addEventListener('close', () => {
         cancelRequest(); panel.append(footer); root.append(panel); sheet = null;
-        open = !narrow.matches; layout();
+        open = false; layout();
       }, { once: true });
     }
     layout();
@@ -505,7 +565,7 @@ export function installWorkspaceAi(wasm: WasmBridge, bus: EventBus, getInput: ()
   accountRefresh.addEventListener('click', () => void refreshConnection());
   login.addEventListener('click', () => { checkingLoginOnReturn = true; });
   window.addEventListener('focus', () => {
-    if (!checkingLoginOnReturn) return;
+    if (!checkingLoginOnReturn && !(managedSite() && (open || connection?.conversationScope))) return;
     checkingLoginOnReturn = false;
     void refreshConnection();
   });
@@ -516,7 +576,7 @@ export function installWorkspaceAi(wasm: WasmBridge, bus: EventBus, getInput: ()
     try {
       const pending = proposal!;
       capture(true);
-      showPreview(pending.text, pending.source, '현재 위치를 확인했어요. 글을 읽고 반영해 주세요.');
+      showPreview(pending.text, pending.source, '현재 위치를 확인했어요. 글을 읽고 반영해 주세요.', true, pending.conversation);
     } catch (error) { detachReview(); say((error as Error).message, true); }
   });
   find('[data-review-resume]').addEventListener('click', () => {
@@ -613,18 +673,30 @@ export function installWorkspaceAi(wasm: WasmBridge, bus: EventBus, getInput: ()
       return;
     }
     capture();
-    if (!target || stale) { say(targetHint(), true); return; }
+    const previous = lastApplied;
     let input: AiWritingRequest;
     if (mode === 'draft') {
       if (method === 'template') {
+        if (!target || stale) { say(targetHint(), true); return; }
         const details = readTemplate();
         if (!details) return;
         input = { mode, template: templateId, details };
       } else {
-        input = { mode, prompt: prompt.value };
+        input = {
+          mode: 'chat',
+          prompt: prompt.value,
+          scope: connection.conversationScope,
+          ...(previous ? { previous: {
+            initialRequest: previous.initialRequest,
+            lastRequest: previous.lastRequest,
+            text: previous.range.text,
+            kind: previous.range.kind,
+            editable: editor.isCurrentApplied(previous.range),
+          } } : {}),
+        };
       }
     } else {
-      if (!target) return;
+      if (!target || stale) { say(targetHint(), true); return; }
       try { editor.assertCurrentPosition(target, mode); }
       catch (error) { stale = true; say((error as Error).message, true); sync(); return; }
       input = { mode, text: target.text, prompt: prompt.value };
@@ -634,7 +706,8 @@ export function installWorkspaceAi(wasm: WasmBridge, bus: EventBus, getInput: ()
     const captured = target;
     const applyImmediately = autoApply.checked;
     const submittedPrompt = prompt.value;
-    appendMessage('user', input.mode === 'draft' && 'details' in input ? input.details : submittedPrompt);
+    const instruction = input.mode === 'draft' && 'details' in input ? input.details : submittedPrompt;
+    appendMessage('user', instruction);
     const answer = appendMessage('assistant', '글을 쓰고 있어요…');
     controller.signal.addEventListener('abort', () => { answer.textContent = '요청을 취소했어요.'; }, { once: true });
     if (generate.parentElement === composerActions) prompt.focus({ preventScroll: true });
@@ -645,38 +718,65 @@ export function installWorkspaceAi(wasm: WasmBridge, bus: EventBus, getInput: ()
       if (request !== controller) return;
       answer.textContent = result.text;
       requestAnimationFrame(() => { thread.scrollTop = thread.scrollHeight; });
-      // Keep the exact request destination. Moving the cursor does not cancel generation.
-      // A changed document is never overwritten: preserve the answer for explicit review instead.
+      const followUp = input.mode === 'chat' && result.action === 'replace';
+      if (result.action === 'reply' || (followUp && !previous)) {
+        if (followUp && !previous) answer.textContent = '수정할 문장을 선택하고 요청해 주세요.';
+        if (prompt.value === submittedPrompt) prompt.value = '';
+        return;
+      }
+      if (followUp && result.text === previous?.range.text) {
+        answer.textContent = '방금 쓴 글과 같아요. 바꿀 내용을 조금 더 알려 주세요.';
+        return;
+      }
+
+      const change: ConversationChange = { request: instruction, previous: followUp ? previous ?? undefined : undefined };
+      const writeMode = input.mode === 'rewrite' ? 'rewrite' : 'draft';
       const keepPromptFocus = document.activeElement === prompt || document.activeElement === generate;
       if (applyImmediately) {
         try {
-          editor.assertCurrent(captured);
           applying = true;
-          if (input.mode === 'draft') editor.applyDraft(captured, result.text, true);
-          else editor.apply(captured, result.text);
-          proposal = null; reviewTarget = null; reviewError = ''; stage = 'compose';
-          target = null; stale = false;
-          appliedRevision = editor.revision;
-          find('[data-ai-receipt-title]').textContent = input.mode === 'draft' ? '문서에 작성했어요' : '선택한 문장을 다듬었어요';
+          let range: AiAppliedRange;
+          if (change.previous) range = editor.replaceApplied(change.previous.range, result.text);
+          else {
+            if (!captured) throw new Error(targetHint());
+            range = writeMode === 'draft' ? editor.applyDraft(captured, result.text, true) : editor.apply(captured, result.text);
+          }
+          rememberApplied(range, change);
+          proposal = null;
+          reviewTarget = null;
+          reviewError = '';
+          stage = 'compose';
+          target = null;
+          stale = false;
+          mode = 'draft';
+          method = 'ai';
+          find('[data-ai-receipt-title]').textContent = followUp ? '방금 쓴 글을 바꿨어요'
+            : writeMode === 'rewrite' ? '선택한 문장을 다듬었어요' : '문서에 작성했어요';
           find('[data-ai-receipt-text]').textContent = result.text;
-          find('[data-ai-receipt-note]').textContent = result.explanation || '요청을 계속 입력하거나 문서에서 직접 편집하세요.';
+          find('[data-ai-receipt-note]').textContent = result.explanation || '같은 부분을 이어서 고칠 수 있어요.';
           if (prompt.value === submittedPrompt) prompt.value = '';
-          say('문서에 반영했어요. 잘못된 내용은 되돌릴 수 있어요.');
+          showMode();
+          say(followUp ? '기존 글을 수정안으로 바꿨어요.' : '문서에 반영했어요.');
           if (keepPromptFocus) prompt.focus({ preventScroll: true });
         } catch (error) {
-          showPreview(result.text, 'ai', result.explanation, false);
-          say('작성한 글은 아래에 남겨 두었어요. ' + (error as Error).message, true);
+          showPreview(result.text, 'ai', result.explanation, false, change);
+          say('아래에서 작성한 글을 확인할 수 있어요. ' + (error as Error).message, true);
         } finally { applying = false; }
       } else {
         let safe = false;
-        try { editor.assertCurrentPosition(captured, input.mode); safe = true; } catch { /* Review after a document change. */ }
+        if (change.previous) safe = editor.isCurrentApplied(change.previous.range);
+        else if (captured) {
+          try { editor.assertCurrentPosition(captured, writeMode); safe = true; }
+          catch { /* Review after a document change. */ }
+        }
         target = captured;
-        showPreview(result.text, 'ai', result.explanation, safe);
+        showPreview(result.text, 'ai', result.explanation, safe, change);
       }
     } catch (error) {
       if (request !== controller) return;
       answer.textContent = controller.signal.aborted ? '요청을 취소했어요.' : (error as Error).message;
       say(controller.signal.aborted ? '요청을 취소했어요. 문장은 그대로예요.' : (error as Error).message, !controller.signal.aborted);
+      if (error instanceof AiSessionChangedError) resetConversation();
       if (error instanceof AiAccessError) void refreshConnection();
     } finally { if (request === controller) request = null; sync(); }
   });
@@ -695,10 +795,20 @@ export function installWorkspaceAi(wasm: WasmBridge, bus: EventBus, getInput: ()
   apply.addEventListener('click', () => {
     if (!reviewTarget || !proposal || apply.disabled) return;
     try {
-      editor.assertCurrentPosition(reviewTarget, mode);
       applying = true;
-      if (mode === 'draft') editor.applyDraft(reviewTarget, proposal.text);
-      else editor.apply(reviewTarget, proposal.text);
+      let range: AiAppliedRange;
+      if ('kind' in reviewTarget) range = editor.replaceApplied(reviewTarget, proposal.text);
+      else {
+        editor.assertCurrentPosition(reviewTarget, mode);
+        range = mode === 'draft' ? editor.applyDraft(reviewTarget, proposal.text) : editor.apply(reviewTarget, proposal.text);
+      }
+      if (proposal.conversation) {
+        rememberApplied(range, proposal.conversation);
+        mode = 'draft';
+        method = 'ai';
+        if (prompt.value.trim() === proposal.conversation.request.trim()) prompt.value = '';
+        showMode();
+      }
       target = null; stale = false; manual.value = '';
       reviewTarget = null; stage = 'done'; sync(); showTarget(); say('');
       showToast({ message: '문서에 넣었어요.' });
@@ -735,7 +845,7 @@ export function installWorkspaceAi(wasm: WasmBridge, bus: EventBus, getInput: ()
     appliedRevision = null;
     if (stage === 'done') stage = 'compose';
     // An in-flight answer remains useful even when its original document location becomes stale.
-    if (target) {
+    if (target || reviewTarget) {
       const reviewing = stage === 'review';
       target = null; stale = true;
       detachReview(); showTarget();
@@ -747,12 +857,8 @@ export function installWorkspaceAi(wasm: WasmBridge, bus: EventBus, getInput: ()
     loading = busy === true;
     sync();
     if (busy !== true) return;
-    appliedRevision = null;
-    history.replaceChildren(); intro.hidden = false;
-    find('[data-ai-receipt-text]').textContent = '';
-    receipt.hidden = true;
-    cancelRequest(); target = null; detachReview(); stale = false;
-    if (stage === 'done') stage = 'compose';
+    resetConversation();
+    say('');
     find('[data-ai-selected]').textContent = '문서를 여는 중이에요. 준비가 끝나면 문장을 선택해 주세요.';
     if (sheet) close();
   });
@@ -774,7 +880,8 @@ export function installWorkspaceAi(wasm: WasmBridge, bus: EventBus, getInput: ()
   });
   narrow.addEventListener('change', () => {
     if (sheet) { sheet.close(); return; }
-    open = !narrow.matches; layout();
+    // Keep the editor wide after a resize; reopen the assistant with its toolbar button.
+    open = false; layout();
   });
   showMode(); layout();
   void refreshConnection();

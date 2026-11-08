@@ -9,6 +9,7 @@ export interface AiConnection {
   maxTextLength: number;
   deployment?: 'coders';
   usage?: 'site';
+  conversationScope?: string;
 }
 
 export function isCodersSite(): boolean {
@@ -16,6 +17,7 @@ export function isCodersSite(): boolean {
 }
 
 export class AiAccessError extends Error {}
+export class AiSessionChangedError extends AiAccessError {}
 
 function isCodersGate(res: Response): boolean {
   return isCodersSite() && (
@@ -36,12 +38,21 @@ export async function readAiConnection(signal?: AbortSignal): Promise<AiConnecti
   if (!res.ok || typeof value?.configured !== 'boolean') throw new Error('AI 연결 상태를 읽지 못했어요. 잠시 후 다시 확인해 주세요.');
   return value;
 }
+export interface AiChatContext {
+  initialRequest: string;
+  lastRequest: string;
+  text: string;
+  kind: 'body' | 'sentence';
+  editable: boolean;
+}
+
 export type AiWritingRequest =
+  | { mode: 'chat'; prompt: string; previous?: AiChatContext; scope?: string }
   | { mode: 'draft'; template: WritingTemplateId; details: string }
   | { mode: 'draft'; prompt: string }
   | { mode: 'rewrite'; text: string; prompt: string };
 
-export async function makeAiWriting({ mode, ...input }: AiWritingRequest, signal: AbortSignal): Promise<{ text: string; explanation: string }> {
+export async function makeAiWriting({ mode, ...input }: AiWritingRequest, signal: AbortSignal): Promise<{ action: 'insert' | 'replace' | 'reply'; text: string; explanation: string }> {
   let res: Response;
   try {
     res = await fetch(`/api/ai/${mode}`, {
@@ -62,12 +73,14 @@ export async function makeAiWriting({ mode, ...input }: AiWritingRequest, signal
   if (!res.ok) {
     const message = typeof value?.error?.message === 'string' ? value.error.message
       : res.status >= 500 ? 'AI에 연결할 수 없어요. 잠시 후 다시 시도해 주세요.' : '글을 만들지 못했어요. 다시 시도해 주세요.';
+    if (value?.error?.code === 'CHAT_SESSION_CHANGED') throw new AiSessionChangedError(message);
     if (value?.error?.code === 'LOGIN_REQUIRED') throw new AiAccessError(message);
     throw new Error(message);
   }
-  const generated = value?.[mode === 'draft' ? 'draftText' : 'revisedText'];
-  if (typeof generated !== 'string' || [...generated].length > AI_TEXT_LIMIT || typeof value?.explanation !== 'string') {
+  const generated = value?.[mode === 'chat' ? 'text' : mode === 'draft' ? 'draftText' : 'revisedText'];
+  const action = mode === 'chat' ? value?.action : mode === 'draft' ? 'insert' : 'replace';
+  if (!['insert', 'replace', 'reply'].includes(action) || typeof generated !== 'string' || [...generated].length > AI_TEXT_LIMIT || typeof value?.explanation !== 'string') {
     throw new Error('받아온 글을 읽을 수 없어요. 다시 시도해 주세요.');
   }
-  return { text: generated, explanation: value.explanation };
+  return { action, text: generated, explanation: value.explanation };
 }

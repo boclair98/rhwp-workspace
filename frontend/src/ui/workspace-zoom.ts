@@ -24,7 +24,6 @@ export function installWorkspaceZoom(
   const resize = createFitResizeHandler(
     () => ({
       loaded: wasm.hasLoadedDocument(),
-      narrow: narrow.matches,
       mode: userSettings.getViewSettings().zoomFitMode,
     }),
     fit,
@@ -34,7 +33,6 @@ export function installWorkspaceZoom(
       setTimeout(() => {
         callback();
         if (
-          narrow.matches &&
           generation === wasm.documentGeneration &&
           userSettings.getViewSettings().zoomFitMode !== 'none'
         ) {

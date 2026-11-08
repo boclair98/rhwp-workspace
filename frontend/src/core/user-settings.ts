@@ -174,7 +174,7 @@ function defaultSettings(): AppSettings {
       toolbarFormat: true,
       pageArrangement: { kind: 'single' },
       pageMovement: { ...DEFAULT_PAGE_MOVEMENT },
-      zoomFitMode: 'none',
+      zoomFitMode: 'fitWidth',
     },
     autosave: {
       recoveryEnabled: true,

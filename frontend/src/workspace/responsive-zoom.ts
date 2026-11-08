@@ -1,5 +1,5 @@
 type FitMode = 'none' | 'fitWidth' | 'fitPage';
-type ResizeState = { loaded: boolean; narrow: boolean; mode: FitMode };
+type ResizeState = { loaded: boolean; mode: FitMode };
 
 /** Refit only a chosen fit rule; typing/keyboard height changes must not reset manual zoom. */
 export function createFitResizeHandler(
@@ -20,7 +20,7 @@ export function createFitResizeHandler(
     const before = previous;
     previous = { width, height };
     const state = getState();
-    if (!before || !state.loaded || !state.narrow || state.mode === 'none')
+    if (!before || !state.loaded || state.mode === 'none')
       return;
     const changed =
       before.width !== width ||
@@ -30,7 +30,7 @@ export function createFitResizeHandler(
     enqueue(() => {
       pending = false;
       const latest = getState();
-      if (latest.loaded && latest.narrow && latest.mode !== 'none')
+      if (latest.loaded && latest.mode !== 'none')
         refit(latest.mode);
     });
   };

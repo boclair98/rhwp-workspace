@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
-import { aiConfiguration, requestDraft, requestRewrite, validateRewrite, createAiMiddleware } from '../server/ai-service.mjs';
+import { aiConfiguration, requestChat, requestDraft, requestRewrite, validateRewrite, createAiMiddleware } from '../server/ai-service.mjs';
 
 // Only injected test transports are used. No request goes to a real AI provider.
 const env = { AI_ENABLED: 'true', OPENAI_API_KEY: 'unit-test-secret', OPENAI_MODEL: 'configured-test-model' };
@@ -179,7 +179,9 @@ test('Coders: 게이트 인증·동일 출처·전송 동의가 모두 있어야
     configured: false, reason: 'login_required', provider: 'OpenAI', model: null, maxTextLength: 2000, deployment: 'coders',
   });
   const signedIn = await api.status(firstVisitor);
-  assert.deepEqual(await signedIn.json(), {
+  const { conversationScope, ...signedInStatus } = await signedIn.json();
+  assert.match(conversationScope, /^[A-Za-z0-9_-]{43}$/);
+  assert.deepEqual(signedInStatus, {
     configured: true, reason: null, provider: 'OpenAI', model: managedEnv.OPENAI_MODEL, maxTextLength: 2000, deployment: 'coders',
   });
   const origin = { Origin: managedEnv.CODERS_AI_ORIGIN };
@@ -290,4 +292,64 @@ test('일반 AI 안내문의 탭·다양한 줄바꿈을 안전하게 정규화�
   for (const text of [Array(65).fill('내용').join('\n'), '잘못된\x00글', '가'.repeat(2001)]) {
     await assert.rejects(requestDraft({prompt:'안내문',consent:true}, {env, fetchImpl: async () => response({draftText:text,explanation:''})}), hasCode('AI_INVALID_OUTPUT'));
   }
+});
+
+const previousWriting = {
+  initialRequest: '12월 3일 주민센터 모임 안내를 써 주세요.',
+  lastRequest: '두 문단으로 정리해 주세요.',
+  text: '모임 안내\n12월 3일 주민센터에서 만납니다.',
+  kind: 'body',
+  editable: true,
+};
+const followUp = { prompt: '방금 쓴 거 좀 더 짧게 해줘', previous: previousWriting, consent: true };
+
+test('대화 API는 현재 요청과 마지막 반영 범위만 보내고 편집 의도를 반환한다', async () => {
+  const result = await requestChat(followUp, { env, fetchImpl: async (_, options) => {
+    const body = JSON.parse(options.body);
+    assert.equal(body.store, false);
+    assert.deepEqual(JSON.parse(body.input[0].content), { request: followUp.prompt, previous: previousWriting });
+    assert.deepEqual(body.text.format.schema.properties.action.enum, ['insert', 'replace', 'reply']);
+    return response({ action: 'replace', text: '12월 3일 주민센터에서 만나요.', explanation: '' });
+  } });
+  assert.equal(result.action, 'replace');
+  assert.equal(result.text, '12월 3일 주민센터에서 만나요.');
+  const noCall = { env, fetchImpl: () => assert.fail('No external call expected') };
+  await assert.rejects(requestChat({ ...followUp, consent: false }, noCall), hasCode('CONSENT_REQUIRED'));
+  await assert.rejects(requestChat({ ...followUp, wholeDocument: '다른 문단' }, noCall), hasCode('INVALID_INPUT'));
+  await assert.rejects(requestChat({ ...followUp, previous: { ...previousWriting, text: '가'.repeat(2001) } }, noCall), hasCode('INVALID_INPUT'));
+});
+
+test('대화 API는 수정 범위가 유효하지 않으면 대체 응답을 안내로 바꾼다', async () => {
+  const opts = { env, fetchImpl: async () => response({ action: 'replace', text: '짧은 안내', explanation: '' }) };
+  for (const previous of [undefined, { ...previousWriting, editable: false }]) {
+    const result = await requestChat({ ...followUp, previous }, opts);
+    assert.equal(result.action, 'reply');
+    assert.match(result.text, /위치를 확인/);
+  }
+  await assert.rejects(requestChat(followUp, {
+    env, fetchImpl: async () => response({ action: 'delete', text: '내용', explanation: '' }),
+  }), hasCode('AI_INVALID_OUTPUT'));
+});
+
+test('Coders 대화 API는 이전 사용자 대화를 거절하고 새 계정에 이전 문맥을 공유하지 않는다', async t => {
+  const providerInputs = [];
+  const api = await nativeTestServer(t, async (_, options) => {
+    providerInputs.push(JSON.parse(JSON.parse(options.body).input[0].content));
+    return response({ action: 'reply', text: '사용자 요청에 답합니다.', explanation: '' });
+  });
+  const origin = { Origin: managedEnv.CODERS_AI_ORIGIN };
+  const a = (await (await api.status(firstVisitor)).json()).conversationScope;
+  const b = (await (await api.status(secondVisitor)).json()).conversationScope;
+  assert.notEqual(a, b);
+  assert.equal((await (await api.status()).json()).conversationScope, undefined);
+  const mismatch = await api.post('chat', { ...followUp, scope: a }, secondVisitor, origin);
+  assert.equal(mismatch.status, 409);
+  assert.equal((await mismatch.json()).error.code, 'CHAT_SESSION_CHANGED');
+  assert.equal(providerInputs.length, 0);
+  assert.equal((await api.post('chat', { ...followUp, scope: a }, firstVisitor, origin)).status, 200);
+  assert.equal((await api.post('chat', { prompt: '새 글 부탁해', scope: b, consent: true }, secondVisitor, origin)).status, 200);
+  assert.deepEqual(providerInputs, [
+    { request: followUp.prompt, previous: previousWriting },
+    { request: '새 글 부탁해' },
+  ]);
 });

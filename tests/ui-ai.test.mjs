@@ -31,23 +31,34 @@ test('AI browser regression: focus, direct edits, cancellation, preservation, HW
   context.setDefaultTimeout(15000);
   let nextText = '모임 안내\n12월 3일 주민센터에서 만나요.';
   let delayed = false, pending, calls = 0, failure = false;
+  let nextAction = 'insert', lastRequest, conversationScope = 'session-a';
+  const status = () => ({ configured:true, provider:'OpenAI', maxTextLength:2000, deployment:'coders', conversationScope });
   const waitPending = async () => {
     for (let n=0; n<100 && !pending; n++) await new Promise(resolve=>setTimeout(resolve,20));
     assert.equal(typeof pending, 'function', 'Provider fixture must receive the request');
   };
-  await context.route('**/api/ai/status', r => r.fulfill({json:{configured:true, provider:'OpenAI', maxTextLength:2000}}));
-  await context.route(/\/api\/ai\/(draft|rewrite)$/, async r => {
-    calls++;
-    const body = r.request().postDataJSON();
-    const text = nextText;
-    const reply = async () => {
-      if (failure) await r.fulfill({status:503,json:{error:{code:'AI_UNAVAILABLE',message:'AI 서버에 연결할 수 없어요. 잠시 후 다시 시도해 주세요.'}}});
-      else await r.fulfill({json:{[r.request().url().endsWith('rewrite')?'revisedText':'draftText']:text, explanation:''}});
-    };
-    if (delayed) await new Promise(resolve => { pending = async () => { await reply().catch(()=>{}); resolve(); }; });
-    else await reply();
-    assert.equal(body.consent, true);
-  });
+  const installAiFixture = async targetContext => {
+    await targetContext.route('**/api/ai/status', r => r.fulfill({json:status()}));
+    await targetContext.route(/\/api\/ai\/(draft|rewrite|chat)$/, async r => {
+      calls++;
+      const body = r.request().postDataJSON();
+      const text = nextText;
+      const action = nextAction;
+      const mode = new URL(r.request().url()).pathname.split('/').at(-1);
+      lastRequest = body;
+      const reply = async () => {
+        if (mode === 'chat' && body.scope !== conversationScope) {
+          await r.fulfill({status:409,json:{error:{code:'CHAT_SESSION_CHANGED',message:'로그인 세션이 바뀌었어요.'}}});
+        } else if (failure) await r.fulfill({status:503,json:{error:{code:'AI_UNAVAILABLE',message:'AI 서버에 연결할 수 없어요. 잠시 후 다시 시도해 주세요.'}}});
+        else await r.fulfill({json:mode === 'chat' ? {action,text,explanation:''}
+          : {[mode === 'rewrite' ? 'revisedText' : 'draftText']:text, explanation:''}});
+      };
+      if (delayed) await new Promise(resolve => { pending = async () => { await reply().catch(()=>{}); resolve(); }; });
+      else await reply();
+      assert.equal(body.consent, true);
+    });
+  };
+  await installAiFixture(context);
   const page = await context.newPage();
   page.on('pageerror', e => errors.push(e.message));
   const start = async p => {
@@ -81,6 +92,15 @@ test('AI browser regression: focus, direct edits, cancellation, preservation, HW
   await page.locator('#font-size').fill('10'); await page.locator('#font-size').press('Enter');
   await page.locator('#btn-align-left').click();
   console.log('PASS stage: classic ribbon, size, alignment and field layout');
+  const aiPanel = page.locator('#workspace-ai-panel');
+  const docViewport = page.locator('#editor-area');
+  assert.equal(await aiPanel.isVisible(),false,'The document starts with the assistant closed');
+  const closedWidth = (await docViewport.boundingBox()).width;
+  await page.screenshot({path:path.join(out,'desktop-document.png')});
+  await page.locator('#workspace-ai-toggle').click();
+  assert.ok((await aiPanel.boundingBox()).width <= 320,'The assistant is a slim side panel');
+  assert.ok(closedWidth - (await docViewport.boundingBox()).width <= 320);
+  assert.equal((await page.locator('#studio-header').boundingBox()).width,1440,'The ribbon keeps its full width');
   assert.equal(await page.locator('[data-writing-chat]').isVisible(),false);
   await page.locator('.workspace-ai-more > summary').click();
   await page.locator('.workspace-ai-more [data-writing-chat]').click();
@@ -136,17 +156,43 @@ test('AI browser regression: focus, direct edits, cancellation, preservation, HW
   await page.getByRole('button',{name:'다시 실행 (Ctrl+Shift+Z)',exact:true}).click();
   assert.match((await save('redo')).text,/모임 안내/);
   console.log('PASS stage: undo/redo');
-  nextText='두 번째 안내'; await prompt.fill('두 번째 안내를 써 주세요.'); await prompt.press('Enter');
-  await page.waitForFunction(()=>document.querySelector('[data-ai-receipt-text]').textContent==='두 번째 안내');
+  nextText='두 번째 안내\n이곳에는 나중에 줄일 상세 설명을 여러 문장으로 적었습니다.';
+  await prompt.fill('두 번째 안내를 써 주세요.'); await prompt.press('Enter');
+  await page.waitForFunction(()=>document.querySelector('[data-ai-receipt-text]').textContent.includes('상세 설명'));
   assert.match((await save('append')).text,/만나요\.\s+두 번째 안내/);
-  console.log('PASS stage: append');
+  await editor.focus(); await page.keyboard.press('Control+Home');
+  nextAction='replace'; nextText='두 번째 안내를 짧게 정리했어요.';
+  await prompt.fill('방금 쓴 거 좀 더 짧게 해줘'); await prompt.press('Enter');
+  await page.waitForFunction(()=>document.querySelector('[data-ai-receipt-title]').textContent==='방금 쓴 글을 바꿨어요');
+  assert.equal(lastRequest.previous.initialRequest,'두 번째 안내를 써 주세요.');
+  assert.equal(lastRequest.previous.editable,true);
+  assert.match(lastRequest.previous.text,/상세 설명/);
+  const shorter = await save('follow-up');
+  assert.match(shorter.text,/모임 안내[\s\S]*12월 3일[\s\S]*두 번째 안내를 짧게 정리했어요/);
+  assert.doesNotMatch(shorter.text,/상세 설명/);
+  assert.equal((shorter.text.match(/두 번째 안내/g) ?? []).length,1);
+  nextText='두 번째 안내를 간략히 정리했습니다.';
+  await prompt.fill('조금 더 공손하게'); await prompt.press('Enter');
+  await page.waitForFunction(()=>document.querySelector('[data-ai-receipt-text]').textContent.includes('간략히'));
+  assert.equal(lastRequest.previous.lastRequest,'방금 쓴 거 좀 더 짧게 해줘');
+  assert.equal(lastRequest.previous.text,'두 번째 안내를 짧게 정리했어요.');
+  assert.match((await save('second-follow-up')).text,/간략히 정리했습니다/);
+  await page.screenshot({path:path.join(out,'desktop-follow-up.png')});
+  await page.locator('[data-ai-undo]').click();
+  assert.match((await save('follow-up-undo')).text,/짧게 정리했어요/);
+  nextAction='reply'; nextText='어떤 글을 만들까요?';
+  await prompt.fill('어떤 글을 만들 수 있어?'); await prompt.press('Enter');
+  await page.getByText(nextText,{exact:true}).waitFor({state:'visible'});
+  assert.doesNotMatch((await save('reply')).text,/어떤 글을 만들까요/);
+  nextAction='insert';
+  console.log('PASS stage: contextual multi-paragraph replacement, successive requests, undo, and non-editing reply');
   await editor.focus(); await page.keyboard.press('Control+Home'); await page.keyboard.press('Shift+End');
   await page.getByRole('button',{name:'문장 다듬기',exact:true}).click();
   nextText='주민 모임 안내'; await prompt.fill('알기 쉽게 다듬어 주세요.'); await prompt.press('Enter');
   await page.waitForFunction(()=>document.querySelector('[data-ai-receipt-text]').textContent==='주민 모임 안내');
   assert.match((await save('rewrite')).text,/주민 모임 안내/);
   console.log('PASS stage: rewrite');
-  await page.getByRole('button',{name:'새 글 쓰기',exact:true}).click();
+  assert.equal(await page.getByRole('button',{name:'문장 다듬기',exact:true}).isVisible(),true);
   await editor.focus(); await page.keyboard.press('Control+End');
   delayed=true; pending = undefined; nextText='보존할 AI 응답'; await prompt.fill('응답 대기 중 수정 시험'); await prompt.press('Enter');
   await page.waitForFunction(()=>!document.querySelector('[data-ai-cancel]').hidden);
@@ -194,10 +240,55 @@ test('AI browser regression: focus, direct edits, cancellation, preservation, HW
   await pending(); delayed=false;
   assert.doesNotMatch((await save('switched')).text,/이전 문서에만 쓰려던 글/);
   await page.screenshot({path:path.join(out,'desktop.png')});
+  assert.equal(lastRequest.previous,undefined,'A different document must not inherit earlier AI context');
   console.log('PASS stage: file switch');
+
+  await page.locator('[data-ai-auto]').check();
+  nextText='이 탭의 작업만 기억합니다.';
+  await prompt.fill('이 탭에 한 줄을 써 주세요'); await prompt.press('Enter');
+  await page.waitForFunction(()=>document.querySelector('[data-ai-receipt-text]').textContent.includes('이 탭의 작업'));
+  const isolated = await browser.newContext({viewport:{width:1440,height:900}});
+  await isolated.route('**/api/ai/status', r => r.fulfill({json:{...status(),conversationScope:'session-b'}}));
+  const independent = await isolated.newPage();
+  await start(independent);
+  await independent.locator('#workspace-ai-toggle').click();
+  assert.equal(await independent.locator('.workspace-ai-message').count(),0);
+  assert.equal(await independent.locator('#workspace-ai-prompt').inputValue(),'');
+  await isolated.close();
+  conversationScope='session-b';
+  await prompt.fill('방금 쓴 글을 줄여 주세요'); await prompt.press('Enter');
+  await page.waitForFunction(()=>document.querySelector('[data-ai-feedback]').textContent.includes('로그인 세션'));
+  assert.equal(await page.locator('.workspace-ai-message').count(),0);
+  assert.equal(await prompt.inputValue(),'');
+  nextText='새 세션의 새 글';
+  await prompt.fill('새로운 한 줄을 써 주세요'); await prompt.press('Enter');
+  await page.waitForFunction(()=>document.querySelector('[data-ai-receipt-text]').textContent==='새 세션의 새 글');
+  assert.equal(lastRequest.scope,'session-b');
+  assert.equal(lastRequest.previous,undefined);
+  console.log('PASS stage: isolated browser and confirmed account change');
+  delayed=true; pending=undefined; nextAction='replace'; nextText='겹쳐 쓰면 안 되는 수정안';
+  await prompt.fill('방금 쓴 거 더 짧게'); await prompt.press('Enter');
+  await waitPending();
+  await editor.focus(); await page.keyboard.press('Control+End');
+  await page.keyboard.insertText(' 사용자의 후속 편집');
+  await pending(); delayed=false; nextAction='insert';
+  await page.locator('[data-ai-preview-section]').waitFor({state:'visible'});
+  assert.equal(await page.locator('[data-ai-apply]').isEnabled(),false);
+  assert.equal(await page.locator('[data-review-rebind]').isVisible(),false);
+  const conflicted = await save('follow-up-conflict');
+  assert.match(conflicted.text,/새 세션의 새 글/);
+  assert.match(conflicted.text,/사용자의 후속 편집/);
+  assert.doesNotMatch(conflicted.text,/겹쳐 쓰면 안 되는 수정안/);
+  console.log('PASS stage: changed document blocks stale follow-up replacement');
+
+
   for (const [width,height] of [[360,800],[390,844],[768,1024],[390,480]]) {
-    const mobile=await context.newPage(); mobile.on('pageerror', e=>errors.push(e.message));
-    await mobile.setViewportSize({width,height}); await start(mobile);
+    // Use a fresh browser profile for each viewport so recovery drafts cannot open over the test.
+    const mobileContext = await browser.newContext({viewport:{width,height}});
+    mobileContext.setDefaultTimeout(15000);
+    await installAiFixture(mobileContext);
+    const mobile=await mobileContext.newPage(); mobile.on('pageerror', e=>errors.push(e.message));
+    await start(mobile);
     await mobile.locator('#workspace-ai-toggle').click();
     await mobile.locator('#workspace-ai-prompt').fill('모바일 안내문'); nextText='모바일 안내문\n모두 환영합니다.';
     await mobile.locator('#workspace-ai-prompt').press('Enter');
@@ -211,7 +302,7 @@ test('AI browser regression: focus, direct edits, cancellation, preservation, HW
     await mobile.locator('[data-ai-document]').click();
     await mobile.locator('.workspace-ai-sheet').waitFor({state:'detached'});
     assert.equal(await mobile.getByRole('textbox',{name:'문서 편집 입력',exact:true}).evaluate(e=>e===document.activeElement),true);
-    await mobile.close();
+    await mobileContext.close();
   }
   assert.deepEqual(errors,[]);
   console.log('PASS: direct writing, focus, IME guard, cursor movement, subsequent prompt, undo/redo, append, rewrite, edit protection, cancel, API failure, preview, HWP save/reopen, four mobile/tablet sizes');
