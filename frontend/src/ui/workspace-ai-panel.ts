@@ -10,7 +10,7 @@ import { showToast } from './toast';
 import type { CommandDispatcher } from '../command/dispatcher';
 import { installWritingLibrary } from './workspace-writing-library';
 
-const panelTitle = '한글 글쓰기 도우미';
+const panelTitle = 'AI 글쓰기';
 type Proposal = { text: string; source: 'manual' | 'ai' | 'template'; explanation?: string };
 
 export function installWorkspaceAi(wasm: WasmBridge, bus: EventBus, getInput: () => InputHandler | null, dispatcher: CommandDispatcher): void {
@@ -23,7 +23,7 @@ export function installWorkspaceAi(wasm: WasmBridge, bus: EventBus, getInput: ()
   trigger.className = 'workspace-tool-button workspace-ai-toggle';
   trigger.setAttribute('aria-label', `${panelTitle} 열기`);
   trigger.setAttribute('aria-controls', 'workspace-ai-panel');
-  trigger.innerHTML = '<span class="workspace-ai-long">글쓰기 도우미</span><span class="workspace-ai-short" aria-hidden="true">글쓰기</span>';
+  trigger.innerHTML = '<span class="workspace-ai-long">AI 글쓰기</span><span class="workspace-ai-short" aria-hidden="true">AI 글쓰기</span>';
   document.getElementById('workspace-quickbar')!.append(trigger);
   const panel = document.createElement('aside');
   panel.id = 'workspace-ai-panel';
@@ -31,7 +31,7 @@ export function installWorkspaceAi(wasm: WasmBridge, bus: EventBus, getInput: ()
   panel.innerHTML = `
     <header class="workspace-ai-heading">
       <span class="workspace-ai-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M13 20h8M17 4a2.1 2.1 0 0 1 3 3L9 18l-5 1 1-5Z"/><path d="m15 6 3 3"/></svg></span>
-      <div><h2>${panelTitle}</h2></div>
+      <div><h2>${panelTitle}</h2><p class="workspace-ai-subtitle">말로 요청하면 문서에 바로 작성</p></div>
       <button type="button" class="workspace-button" data-ai-close aria-label="${panelTitle} 닫기">닫기</button>
     </header>
     <div class="workspace-ai-body">
@@ -114,6 +114,40 @@ export function installWorkspaceAi(wasm: WasmBridge, bus: EventBus, getInput: ()
     </div></footer>`;
   root.append(panel);
   const find = <T extends HTMLElement = HTMLElement>(selector: string) => panel.querySelector<T>(selector)!;
+  // Keep the composer mounted: moving focus never recreates the textarea or its IME state.
+  const compose = find('[data-ai-compose]');
+  const thread = document.createElement('div');
+  thread.className = 'workspace-ai-thread';
+  const intro = document.createElement('div');
+  intro.className = 'workspace-ai-chat-intro';
+  intro.innerHTML = '<strong>필요한 글을 말해 주세요</strong><p>안내문부터 문장 다듬기까지,<br>이 문서에 바로 작성해 드려요.</p>';
+  const history = document.createElement('div');
+  history.className = 'workspace-ai-chat-history';
+  history.setAttribute('role', 'log');
+  history.setAttribute('aria-label', '이 문서의 AI 요청 기록');
+  history.setAttribute('aria-live', 'polite');
+  thread.append(intro, history);
+  for (const child of [...compose.children]) {
+    if (!child.hasAttribute('data-ai-request')) thread.append(child);
+  }
+  compose.prepend(thread);
+  const moreTools = document.createElement('details');
+  moreTools.className = 'workspace-ai-more';
+  const moreSummary = document.createElement('summary'); moreSummary.textContent = '더 보기';
+  moreTools.append(moreSummary, find('[data-writing-chat]'), find('[data-writing-templates]'), find('.workspace-ai-manual'));
+  const secondary = document.createElement('div'); secondary.className = 'workspace-ai-secondary';
+  secondary.append(find('.workspace-ai-switches'), moreTools); thread.append(secondary);
+  const appendMessage = (role: 'user' | 'assistant', text: string) => {
+    intro.hidden = true;
+    const message = document.createElement('article');
+    message.className = `workspace-ai-message is-${role}`;
+    const label = document.createElement('strong'); label.textContent = role === 'user' ? '내 요청' : 'AI가 작성한 글';
+    const content = document.createElement('p'); content.textContent = text;
+    message.append(label, content); history.append(message);
+    while (history.children.length > 12) history.firstElementChild?.remove();
+    requestAnimationFrame(() => { thread.scrollTop = thread.scrollHeight; });
+    return content;
+  };
   const prompt = find<HTMLTextAreaElement>('#workspace-ai-prompt');
   const autoApply = find<HTMLInputElement>('[data-ai-auto]');
   const receipt = find('[data-ai-receipt]');
@@ -195,6 +229,7 @@ export function installWorkspaceAi(wasm: WasmBridge, bus: EventBus, getInput: ()
     const direct = !draft && !ai;
     const composer = !template && !direct;
     const composing = !libraryOpen && stage === 'compose';
+    panel.classList.toggle('workspace-chat-active', composing && composer);
     const missingSelection = !draft && (!target || stale);
     const missingText = !template && !(direct ? manual.value : prompt.value).trim();
     const actions = composer ? composerActions : footerActions;
@@ -275,7 +310,7 @@ export function installWorkspaceAi(wasm: WasmBridge, bus: EventBus, getInput: ()
     chat.hidden = !draft;
     chat.setAttribute('aria-expanded', String(draft && method === 'template'));
     chat.textContent = method === 'ai' ? '양식으로 쓰기' : '입력창으로 돌아가기';
-    if (!draft && !connection?.configured) find<HTMLDetailsElement>('.workspace-ai-manual').open = true;
+    if (!draft && !connection?.configured) { moreTools.open = true; find<HTMLDetailsElement>('.workspace-ai-manual').open = true; }
     for (const button of modeButtons) button.hidden = button.dataset.aiMode === mode;
     find('[data-ai-prompt-label]').textContent = draft ? '무엇을 도와드릴까요?' : '어떻게 다듬을까요?';
     find('[data-ai-rewrite-examples]').hidden = draft;
@@ -599,12 +634,17 @@ export function installWorkspaceAi(wasm: WasmBridge, bus: EventBus, getInput: ()
     const captured = target;
     const applyImmediately = autoApply.checked;
     const submittedPrompt = prompt.value;
+    appendMessage('user', input.mode === 'draft' && 'details' in input ? input.details : submittedPrompt);
+    const answer = appendMessage('assistant', '글을 쓰고 있어요…');
+    controller.signal.addEventListener('abort', () => { answer.textContent = '요청을 취소했어요.'; }, { once: true });
     if (generate.parentElement === composerActions) prompt.focus({ preventScroll: true });
     say(generate.parentElement === composerActions ? '' : '글을 준비하고 있어요. 잠시만 기다려 주세요.');
     sync();
     try {
       const result = await makeAiWriting(input, AbortSignal.any([controller.signal, AbortSignal.timeout(50000)]));
       if (request !== controller) return;
+      answer.textContent = result.text;
+      requestAnimationFrame(() => { thread.scrollTop = thread.scrollHeight; });
       // Keep the exact request destination. Moving the cursor does not cancel generation.
       // A changed document is never overwritten: preserve the answer for explicit review instead.
       const keepPromptFocus = document.activeElement === prompt || document.activeElement === generate;
@@ -635,6 +675,7 @@ export function installWorkspaceAi(wasm: WasmBridge, bus: EventBus, getInput: ()
       }
     } catch (error) {
       if (request !== controller) return;
+      answer.textContent = controller.signal.aborted ? '요청을 취소했어요.' : (error as Error).message;
       say(controller.signal.aborted ? '요청을 취소했어요. 문장은 그대로예요.' : (error as Error).message, !controller.signal.aborted);
       if (error instanceof AiAccessError) void refreshConnection();
     } finally { if (request === controller) request = null; sync(); }
@@ -647,7 +688,7 @@ export function installWorkspaceAi(wasm: WasmBridge, bus: EventBus, getInput: ()
   discard.addEventListener('click', () => {
     stage = 'compose'; sync(); say('만든 글은 ‘이전에 만든 글 계속 보기’에 남아 있어요.');
     if (proposal?.source === 'manual') {
-      find<HTMLDetailsElement>('.workspace-ai-manual').open = true;
+      moreTools.open = true; find<HTMLDetailsElement>('.workspace-ai-manual').open = true;
       manual.focus();
     } else focusInput();
   });
@@ -707,6 +748,7 @@ export function installWorkspaceAi(wasm: WasmBridge, bus: EventBus, getInput: ()
     sync();
     if (busy !== true) return;
     appliedRevision = null;
+    history.replaceChildren(); intro.hidden = false;
     find('[data-ai-receipt-text]').textContent = '';
     receipt.hidden = true;
     cancelRequest(); target = null; detachReview(); stale = false;

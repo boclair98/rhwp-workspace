@@ -72,6 +72,12 @@ test('AI browser regression: focus, direct edits, cancellation, preservation, HW
   await page.locator('#font-size').fill('10'); await page.locator('#font-size').press('Enter');
   await page.locator('#btn-align-left').click();
   console.log('PASS stage: classic ribbon, size, alignment and field layout');
+  assert.equal(await page.locator('[data-writing-chat]').isVisible(),false);
+  await page.locator('.workspace-ai-more > summary').click();
+  await page.locator('.workspace-ai-more [data-writing-chat]').click();
+  assert.equal(await page.locator('[data-template-form]').isVisible(),true);
+  await page.locator('[data-writing-chat]').click();
+  await page.locator('.workspace-ai-more > summary').click();
   const prompt = page.locator('#workspace-ai-prompt');
   const editor = page.getByRole('textbox',{name:'문서 편집 입력',exact:true});
   let saveCount = 0;
@@ -108,7 +114,13 @@ test('AI browser regression: focus, direct edits, cancellation, preservation, HW
   assert.equal(await page.evaluate(()=>document.activeElement.id),'workspace-ai-prompt');
   assert.equal(calls,1);
   assert.equal(await page.locator('[data-ai-undo]').isEnabled(),true);
-  console.log('PASS stage: direct');
+  assert.equal(await page.locator('.workspace-ai-message').count(),2);
+  assert.match(await page.locator('.workspace-ai-message.is-user').innerText(),/모임 안내를 써 주세요/);
+  assert.match(await page.locator('.workspace-ai-message.is-assistant').innerText(),/모임 안내/);
+  const composerBefore = await prompt.boundingBox();
+  await page.locator('.workspace-ai-thread').evaluate(e=>{e.scrollTop=0;});
+  assert.equal((await prompt.boundingBox()).y,composerBefore.y,'Thread scroll must not move the composer');
+  console.log('PASS stage: direct and pinned conversation');
   const first = await save('direct'); assert.match(first.text,/모임 안내/); assert.match(first.text,/12월 3일/);
   await page.locator('[data-ai-undo]').click();
   assert.equal((await save('undo')).text.trim(),'');
@@ -148,6 +160,8 @@ test('AI browser regression: focus, direct edits, cancellation, preservation, HW
   await page.locator('[data-ai-cancel]').click(); await pending(); delayed=false;
   assert.equal(await prompt.inputValue(),'취소 시험');
   assert.doesNotMatch((await save('cancelled')).text,/취소한 글/);
+  assert.match(await page.locator('.workspace-ai-message.is-assistant').last().innerText(),/취소/);
+  assert.ok(await page.locator('.workspace-ai-message').count() <= 12);
   console.log('PASS stage: cancel');
   failure=true; await prompt.fill('실패 시험'); await prompt.press('Enter');
   await page.waitForFunction(()=>document.querySelector('[data-ai-feedback]').textContent.includes('서버에 연결'));
@@ -159,6 +173,7 @@ test('AI browser regression: focus, direct edits, cancellation, preservation, HW
   const reviewed=await save('reviewed'); assert.match(reviewed.text,/선택한 미리보기/);
   await page.locator('#file-input').setInputFiles(reviewed.file);
   await page.waitForFunction(()=>document.querySelector('#workspace-title').textContent.includes('reviewed'));
+  assert.equal(await page.locator('.workspace-ai-message').count(),0,'Opening a document clears the temporary conversation');
   assert.match((await save('reopened')).text,/선택한 미리보기/);
   console.log('PASS stage: reopen');
   delayed=true; pending = undefined; nextText='이전 문서에만 쓰려던 글'; await prompt.fill('문서 교체 시험'); await prompt.press('Enter');
@@ -180,6 +195,9 @@ test('AI browser regression: focus, direct edits, cancellation, preservation, HW
     await mobile.locator('[data-ai-receipt]').waitFor({state:'visible'});
     const layout=await mobile.evaluate(()=>({overflow:document.documentElement.scrollWidth-innerWidth,focus:document.activeElement.id,send:document.querySelector('[data-ai-generate]').getBoundingClientRect().toJSON()}));
     assert.equal(layout.overflow,0); assert.equal(layout.focus,'workspace-ai-prompt'); assert.ok(layout.send.width>=44&&layout.send.height>=44);
+    const mobilePrompt = await mobile.locator('#workspace-ai-prompt').boundingBox();
+    assert.ok(mobilePrompt.y >= 0 && mobilePrompt.y+mobilePrompt.height <= height,'Prompt stays in the visible viewport');
+    assert.ok(layout.send.y >= 0 && layout.send.y+layout.send.height <= height,'Send stays visible');
     await mobile.screenshot({path:path.join(out,`mobile-${width}-${height}.png`)});
     await mobile.locator('[data-ai-document]').click();
     await mobile.locator('.workspace-ai-sheet').waitFor({state:'detached'});

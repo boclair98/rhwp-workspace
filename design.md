@@ -1,3 +1,13 @@
+## v0.12 문서 옆 채팅 패널 — 2026-11-08
+
+- 사용자 참고는 편집 화면 옆에 붙는 독립 AI 패널이다. 기존 RHWP 메뉴·리본·종이·편집/저장 계약을 유지하고 오른쪽 패널을 리본 높이부터 끝까지 배치한다. 채팅 내용은 위에서 스크롤하고 요청 입력은 아래에 유지한다.
+- Resolved inputs: Topic=한글 AI 작성, Offer=문서 옆 요청과 즉시 반영, Audience=모든 연령의 문서 사용자, Primary action=요청 보내기→문서 반영, Deliverable=기존 편집기, Style direction=밝은 문서/독립 채팅 패널, Tonal key=친숙하고 짧게, Icon policy=기존 오픈소스 선 아이콘, Proof assets=실제 테스트 문서, Motion intensity=스크롤과 상태 피드백만.
+- Composition contract: hero 없음. 기존 상단 제목줄과 왼쪽 리본/문서 유지, 오른쪽 380px 패널은 머리글→요청/응답 기록→현재 적용 결과→하단 입력. 입력창은 스크롤로 사라지지 않는다. 보조 도구와 미리보기/보관은 유지한다. Google/Chrome 자산은 사용하지 않는다.
+- 기존 Pretendard/system-ui와 흰색 표면, #191f28 본문, #4e5968 보조, #e5e8eb 테두리, #1b64da 동작색. 본문16px/1.6, 입력16px/1.6, 제목18px/700, 8/12/16px 간격, 말풍선16px·입력18px 반경, 조작44px. 모바일은 기존 시트에 같은 상하 구조를 적용하되 낮은 높이에서도 입력·닫기·전송을 보장한다.
+- 요청/응답은 현재 문서/탭의 최근 6회만 표시하고 저장/서버 전송하지 않는다. 기존 API는 각 요청을 독립 처리한다. 대화 기억이나 전체 문서 전송을 구현했다고 표시하지 않는다. 오류/취소/문서 교체 시 기록 상태와 초점을 확인한다.
+- 경로: workspace-ai-panel.ts, workspace-ai.css, README/AI_PANEL_CHECKS, 버전, tests/ui-ai.test.mjs. CTA는 기존 generate/apply/undo/close 핸들러. 원본 엔진/API/키 관리 유지. 단위/HTTP 테스트와 실제 브라우저 HWP 저장/재열기, 채팅 기록/입력 고정/모바일360·390·768/PC1440 검사 후 upstream→fork→Coders 재배포.
+- Filled master prompt/output target: 기존 RHWP 한글 편집기를 왼쪽에 두고 오른쪽의 독립 AI 채팅 패널로 요청→결과→문서 적용을 연결하라. 입력은 하단, 기록은 상단이며 실제 편집 기능과 초점을 보존하라. Output=기존 TypeScript/CSS 코드.
+
 # 글결 — RHWP 문서 작업 공간
 
 ## v0.11 한글식 리본 편집기와 AI 보조 패널 — 2026-11-07
